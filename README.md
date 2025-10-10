@@ -5,7 +5,7 @@ Picomimi is a tiny, playful "OS/kernel"... kinda thing for the **RP2040**. Ardui
 Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, task-based system** on your Pico. You can run multiple tasks, interact with the "kernel" through a serial shell, and explore system behaviour in real-time. It's built for **playful experimentation** and learning, offering a tiny playground for microcontroller enthusiasts.
 
 ![Picomimi mascot](assets/Picomimi_Milkman.png)
-*Picomimi ready for fun experiments!*
+*Picomimi ready for fun experiments! - AI generated image, for fun, don't judge.*
 
 ---
 
