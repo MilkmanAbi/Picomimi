@@ -1,6 +1,6 @@
-// RP2040 Kernel v6.0 - Fixed and Clean
+// RP2040 Kernel v7.0 - Virtual Filesystem Introduction
 // Board: Raspberry Pi Pico @ 250MHz
-// Features: Arduino IDE compatible, optimized memory, module/app separation
+// Features: Arduino IDE compatible, optimized memory, module/app separation, VFS
 // Required Library: Adafruit_ILI9341, Adafruit_GFX
 // Board Manager: Arduino-Pico by Earle Philhower
 
@@ -10,6 +10,7 @@
 #include <hardware/adc.h>
 #include <hardware/watchdog.h>
 #include <hardware/sync.h>
+#include <hardware/flash.h>
 #include <pico/platform.h>
 
 // Disable interrupts (RP2040 compatible - using Pico SDK)
@@ -46,6 +47,14 @@
 #define MAX_LOG_ENTRIES 40
 #define SCHEDULER_TICK_US 1000
 
+// Filesystem constants
+#define VFS_BLOCK_SIZE 256
+#define VFS_MAX_FILES 16
+#define VFS_FILENAME_LEN 16
+#define VFS_MAX_FILE_SIZE (16 * 1024)
+#define VFS_STORAGE_SIZE (128 * 1024)  // 128KB for dev (supports up to 2MB)
+#define VFS_FLASH_OFFSET (1024 * 1024) // 1MB offset in flash
+
 // Task states
 enum TaskState : uint8_t {
     TASK_READY,
@@ -76,6 +85,12 @@ enum TaskState : uint8_t {
 #define OOM_PRIORITY_HIGH       2
 #define OOM_PRIORITY_NORMAL     3
 #define OOM_PRIORITY_LOW        4
+
+// File types
+#define FILE_TYPE_TEXT    0x01
+#define FILE_TYPE_LOG     0x02
+#define FILE_TYPE_DATA    0x03
+#define FILE_TYPE_CONFIG  0x04
 
 // Module lifecycle callbacks
 struct ModuleCallbacks {
@@ -134,6 +149,29 @@ struct LogEntry {
     uint8_t _padding[7];
 } __attribute__((aligned(8)));
 
+// VFS File Entry
+struct VFSFile {
+    char name[VFS_FILENAME_LEN];
+    uint8_t type;
+    bool in_use;
+    uint16_t block_start;
+    uint32_t size;
+    uint32_t created;
+    uint32_t modified;
+    uint32_t owner_id;
+} __attribute__((packed));
+
+// VFS Superblock
+struct VFSSuperblock {
+    uint32_t magic;
+    uint32_t version;
+    uint32_t total_blocks;
+    uint32_t free_blocks;
+    uint32_t file_count;
+    uint8_t block_bitmap[VFS_STORAGE_SIZE / VFS_BLOCK_SIZE / 8];
+    VFSFile files[VFS_MAX_FILES];
+} __attribute__((packed));
+
 // Kernel state
 struct KernelState {
     TCB tasks[MAX_TASKS];
@@ -165,6 +203,7 @@ struct KernelState {
     bool input_alive;
     bool cpumon_alive;
     bool tempmon_alive;
+    bool vfs_alive;
     bool root_mode;
     
     float cpu_usage;
@@ -174,6 +213,12 @@ struct KernelState {
     LogEntry log[MAX_LOG_ENTRIES];
     uint32_t log_head;
     uint32_t log_count;
+    
+    VFSSuperblock* vfs_sb;
+    uint8_t* vfs_data;
+    bool vfs_mounted;
+    uint32_t vfs_writes;
+    uint32_t vfs_reads;
     
     uint8_t heap[HEAP_SIZE];
 };
@@ -209,6 +254,18 @@ size_t get_task_memory(uint32_t task_id);
 void mem_compact();
 void calculate_fragmentation();
 void oom_killer();
+
+// VFS forward declarations
+void vfs_init();
+void vfs_format();
+bool vfs_mount();
+void vfs_unmount();
+int vfs_create(const char* name, uint8_t type, uint32_t owner_id);
+int vfs_write(int fd, const void* data, uint32_t size);
+int vfs_read(int fd, void* buffer, uint32_t size);
+void vfs_delete(int fd);
+void vfs_list();
+void vfs_stats();
 
 // =========================================================================
 // TIMING
@@ -254,6 +311,318 @@ void klog(uint8_t level, const char* msg) {
     }
     
     restore_interrupts(irq_state);
+    
+    // Optionally write critical logs to VFS
+    if (kernel.vfs_mounted && level >= 2) {
+        // Will be implemented later
+    }
+}
+
+// =========================================================================
+// Virtual Filesystem (VFS)
+// =========================================================================
+
+void vfs_init() {
+    kernel.vfs_sb = NULL;
+    kernel.vfs_data = NULL;
+    kernel.vfs_mounted = false;
+    kernel.vfs_writes = 0;
+    kernel.vfs_reads = 0;
+    
+    // Allocate VFS superblock in RAM
+    kernel.vfs_sb = (VFSSuperblock*)kmalloc(sizeof(VFSSuperblock), 0);
+    if (!kernel.vfs_sb) {
+        Serial.println("[VFS] Failed to allocate superblock");
+        klog(3, "VFS: Init failed");
+        return;
+    }
+    
+    // Allocate VFS data buffer
+    kernel.vfs_data = (uint8_t*)kmalloc(VFS_STORAGE_SIZE, 0);
+    if (!kernel.vfs_data) {
+        kfree(kernel.vfs_sb);
+        kernel.vfs_sb = NULL;
+        Serial.println("[VFS] Failed to allocate data buffer");
+        klog(3, "VFS: Data alloc failed");
+        return;
+    }
+    
+    Serial.println("[VFS] Buffers allocated");
+    klog(0, "VFS: Init OK");
+}
+
+void vfs_format() {
+    if (!kernel.vfs_sb) {
+        Serial.println("[VFS] Not initialized");
+        return;
+    }
+    
+    Serial.println("[VFS] Formatting filesystem...");
+    
+    memset(kernel.vfs_sb, 0, sizeof(VFSSuperblock));
+    memset(kernel.vfs_data, 0xFF, VFS_STORAGE_SIZE);
+    
+    kernel.vfs_sb->magic = 0x52503230;  // "RP20"
+    kernel.vfs_sb->version = 1;
+    kernel.vfs_sb->total_blocks = VFS_STORAGE_SIZE / VFS_BLOCK_SIZE;
+    kernel.vfs_sb->free_blocks = kernel.vfs_sb->total_blocks;
+    kernel.vfs_sb->file_count = 0;
+    
+    // Clear block bitmap
+    memset(kernel.vfs_sb->block_bitmap, 0, sizeof(kernel.vfs_sb->block_bitmap));
+    
+    // Clear file table
+    for (int i = 0; i < VFS_MAX_FILES; i++) {
+        kernel.vfs_sb->files[i].in_use = false;
+        kernel.vfs_sb->files[i].name[0] = '\0';
+    }
+    
+    Serial.println("[VFS] Format complete");
+    Serial.print("  Blocks: ");
+    Serial.println(kernel.vfs_sb->total_blocks);
+    Serial.print("  Max files: ");
+    Serial.println(VFS_MAX_FILES);
+    Serial.print("  Storage: ");
+    Serial.print(VFS_STORAGE_SIZE / 1024);
+    Serial.println(" KB");
+    
+    klog(0, "VFS: Formatted");
+}
+
+bool vfs_mount() {
+    if (!kernel.vfs_sb) {
+        Serial.println("[VFS] Not initialized");
+        return false;
+    }
+    
+    // For now, just format. Later can read from flash
+    vfs_format();
+    
+    kernel.vfs_mounted = true;
+    kernel.vfs_alive = true;
+    
+    Serial.println("[VFS] Mounted");
+    klog(0, "VFS: Mounted");
+    
+    return true;
+}
+
+void vfs_unmount() {
+    if (!kernel.vfs_mounted) return;
+    
+    kernel.vfs_mounted = false;
+    kernel.vfs_alive = false;
+    
+    Serial.println("[VFS] Unmounted");
+    klog(0, "VFS: Unmounted");
+}
+
+int vfs_create(const char* name, uint8_t type, uint32_t owner_id) {
+    if (!kernel.vfs_mounted) {
+        Serial.println("[VFS] Not mounted");
+        return -1;
+    }
+    
+    if (strlen(name) >= VFS_FILENAME_LEN) {
+        Serial.println("[VFS] Filename too long");
+        return -1;
+    }
+    
+    // Check if file already exists
+    for (int i = 0; i < VFS_MAX_FILES; i++) {
+        if (kernel.vfs_sb->files[i].in_use && 
+            strcmp(kernel.vfs_sb->files[i].name, name) == 0) {
+            Serial.println("[VFS] File exists");
+            return -1;
+        }
+    }
+    
+    // Find free file entry
+    int fd = -1;
+    for (int i = 0; i < VFS_MAX_FILES; i++) {
+        if (!kernel.vfs_sb->files[i].in_use) {
+            fd = i;
+            break;
+        }
+    }
+    
+    if (fd < 0) {
+        Serial.println("[VFS] No free file entries");
+        return -1;
+    }
+    
+    VFSFile* file = &kernel.vfs_sb->files[fd];
+    strncpy(file->name, name, VFS_FILENAME_LEN - 1);
+    file->name[VFS_FILENAME_LEN - 1] = '\0';
+    file->type = type;
+    file->in_use = true;
+    file->block_start = 0xFFFF;
+    file->size = 0;
+    file->created = get_time_ms();
+    file->modified = file->created;
+    file->owner_id = owner_id;
+    
+    kernel.vfs_sb->file_count++;
+    
+    Serial.print("[VFS] Created: ");
+    Serial.println(name);
+    
+    return fd;
+}
+
+int vfs_write(int fd, const void* data, uint32_t size) {
+    if (!kernel.vfs_mounted || fd < 0 || fd >= VFS_MAX_FILES) {
+        return -1;
+    }
+    
+    VFSFile* file = &kernel.vfs_sb->files[fd];
+    if (!file->in_use) return -1;
+    
+    if (size > VFS_MAX_FILE_SIZE) {
+        size = VFS_MAX_FILE_SIZE;
+    }
+    
+    uint32_t blocks_needed = (size + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+    
+    if (blocks_needed > kernel.vfs_sb->free_blocks) {
+        Serial.println("[VFS] Insufficient space");
+        return -1;
+    }
+    
+    // Find free blocks
+    uint16_t start_block = 0xFFFF;
+    for (uint32_t i = 0; i < kernel.vfs_sb->total_blocks; i++) {
+        uint32_t byte_idx = i / 8;
+        uint32_t bit_idx = i % 8;
+        
+        if (!(kernel.vfs_sb->block_bitmap[byte_idx] & (1 << bit_idx))) {
+            if (start_block == 0xFFFF) {
+                start_block = i;
+            }
+            
+            // Mark block as used
+            kernel.vfs_sb->block_bitmap[byte_idx] |= (1 << bit_idx);
+            kernel.vfs_sb->free_blocks--;
+            
+            if ((i - start_block + 1) >= blocks_needed) {
+                break;
+            }
+        }
+    }
+    
+    if (start_block == 0xFFFF) {
+        Serial.println("[VFS] Block allocation failed");
+        return -1;
+    }
+    
+    // Write data
+    uint32_t offset = start_block * VFS_BLOCK_SIZE;
+    memcpy(kernel.vfs_data + offset, data, size);
+    
+    file->block_start = start_block;
+    file->size = size;
+    file->modified = get_time_ms();
+    
+    kernel.vfs_writes++;
+    
+    return size;
+}
+
+int vfs_read(int fd, void* buffer, uint32_t size) {
+    if (!kernel.vfs_mounted || fd < 0 || fd >= VFS_MAX_FILES) {
+        return -1;
+    }
+    
+    VFSFile* file = &kernel.vfs_sb->files[fd];
+    if (!file->in_use || file->block_start == 0xFFFF) {
+        return -1;
+    }
+    
+    uint32_t read_size = size < file->size ? size : file->size;
+    uint32_t offset = file->block_start * VFS_BLOCK_SIZE;
+    
+    memcpy(buffer, kernel.vfs_data + offset, read_size);
+    
+    kernel.vfs_reads++;
+    
+    return read_size;
+}
+
+void vfs_delete(int fd) {
+    if (!kernel.vfs_mounted || fd < 0 || fd >= VFS_MAX_FILES) {
+        return;
+    }
+    
+    VFSFile* file = &kernel.vfs_sb->files[fd];
+    if (!file->in_use) return;
+    
+    // Free blocks
+    if (file->block_start != 0xFFFF) {
+        uint32_t blocks = (file->size + VFS_BLOCK_SIZE - 1) / VFS_BLOCK_SIZE;
+        for (uint32_t i = 0; i < blocks; i++) {
+            uint32_t block = file->block_start + i;
+            uint32_t byte_idx = block / 8;
+            uint32_t bit_idx = block % 8;
+            kernel.vfs_sb->block_bitmap[byte_idx] &= ~(1 << bit_idx);
+            kernel.vfs_sb->free_blocks++;
+        }
+    }
+    
+    file->in_use = false;
+    kernel.vfs_sb->file_count--;
+    
+    Serial.print("[VFS] Deleted: ");
+    Serial.println(file->name);
+}
+
+void vfs_list() {
+    if (!kernel.vfs_mounted) {
+        Serial.println("[VFS] Not mounted");
+        return;
+    }
+    
+    Serial.println("\n=== Filesystem Contents ===");
+    Serial.println("ID  Name             Type   Size    Owner");
+    Serial.println("--  ---------------  -----  ------  -----");
+    
+    const char* type_str[] = {"", "TEXT", "LOG", "DATA", "CONF"};
+    
+    for (int i = 0; i < VFS_MAX_FILES; i++) {
+        VFSFile* file = &kernel.vfs_sb->files[i];
+        if (file->in_use) {
+            char buf[64];
+            snprintf(buf, sizeof(buf), "%2d  %-15s  %-5s  %6d  %5d",
+                     i, file->name, 
+                     file->type < 5 ? type_str[file->type] : "?",
+                     file->size, file->owner_id);
+            Serial.println(buf);
+        }
+    }
+    
+    Serial.print("\nFiles: ");
+    Serial.print(kernel.vfs_sb->file_count);
+    Serial.print("/");
+    Serial.println(VFS_MAX_FILES);
+}
+
+void vfs_stats() {
+    if (!kernel.vfs_mounted) {
+        Serial.println("[VFS] Not mounted");
+        return;
+    }
+    
+    Serial.println("\n=== Filesystem Statistics ===");
+    Serial.print("Total blocks:  "); Serial.println(kernel.vfs_sb->total_blocks);
+    Serial.print("Free blocks:   "); Serial.println(kernel.vfs_sb->free_blocks);
+    Serial.print("Used blocks:   "); Serial.println(kernel.vfs_sb->total_blocks - kernel.vfs_sb->free_blocks);
+    Serial.print("Files:         "); Serial.print(kernel.vfs_sb->file_count);
+    Serial.print("/"); Serial.println(VFS_MAX_FILES);
+    Serial.print("Total writes:  "); Serial.println(kernel.vfs_writes);
+    Serial.print("Total reads:   "); Serial.println(kernel.vfs_reads);
+    
+    uint32_t used_space = (kernel.vfs_sb->total_blocks - kernel.vfs_sb->free_blocks) * VFS_BLOCK_SIZE;
+    Serial.print("Space used:    "); Serial.print(used_space / 1024); Serial.println(" KB");
+    Serial.print("Space free:    "); Serial.print((kernel.vfs_sb->free_blocks * VFS_BLOCK_SIZE) / 1024); Serial.println(" KB");
 }
 
 // =========================================================================
@@ -612,6 +981,7 @@ void task_init() {
     kernel.input_alive = true;
     kernel.cpumon_alive = true;
     kernel.tempmon_alive = true;
+    kernel.vfs_alive = false;
     kernel.log_head = 0;
     kernel.log_count = 0;
     kernel.total_context_switches = 0;
@@ -710,7 +1080,6 @@ void scheduler_tick() {
     uint64_t now = get_time_ms();
     kernel.uptime_ms = now;
     
-    // If kernel is corrupted, don't even try
     if (kernel.task_count == 0 || kernel.task_count > MAX_TASKS) {
         return;
     }
@@ -718,12 +1087,10 @@ void scheduler_tick() {
     for (uint32_t i = 0; i < kernel.task_count; i++) {
         TCB* task = &kernel.tasks[i];
         
-        // Wake sleeping tasks
         if (task->state == TASK_WAITING && now >= task->wake_time) {
             task->state = TASK_READY;
         }
         
-        // Check for timeout
         if (task->max_runtime > 0 && task->state != TASK_TERMINATED) {
             if ((now - task->start_time) > task->max_runtime) {
                 char buf[64];
@@ -733,9 +1100,7 @@ void scheduler_tick() {
             }
         }
         
-        // NO RESPAWN for kernel tasks if killed - they stay dead
         if (task->state == TASK_TERMINATED && (task->flags & TASK_FLAG_RESPAWN)) {
-            // Skip respawn if it's a kernel task - let it stay dead
             if (task->task_type == TASK_TYPE_KERNEL) {
                 continue;
             }
@@ -800,29 +1165,21 @@ void brutal_task_kill(uint32_t id) {
     Serial.print(task->name);
     Serial.println("'");
     
-    // CRITICAL: Killing the kernel idle task = IMMEDIATE HARD CRASH
-    // No cleanup, no warnings, just die like real UNIX
     if (task->task_type == TASK_TYPE_KERNEL) {
         Serial.println("\n!!!!! KERNEL KILLED !!!!!");
         Serial.flush();
         
-        // Corrupt the kernel state
         kernel.running = false;
         kernel.task_count = 0;
         kernel.current_task = 0xFFFFFFFF;
         
-        // Destroy task table
         memset(&kernel.tasks, 0xFF, sizeof(kernel.tasks));
-        
-        // Destroy memory manager
         memset(&kernel.mem_blocks, 0xFF, sizeof(kernel.mem_blocks));
         kernel.mem_block_count = 0;
         
-        // Try to execute NULL - causes hard fault/crash on ARM
         void (*crash)(void) = NULL;
         crash();
         
-        // If somehow we survive, infinite loop with no LED
         while(1) { 
             __asm__("nop");
         }
@@ -869,6 +1226,11 @@ void brutal_task_kill(uint32_t id) {
     else if (strcmp(task->name, "tempmon") == 0) {
         kernel.tempmon_alive = false;
     }
+    else if (strcmp(task->name, "vfs") == 0) {
+        kernel.vfs_alive = false;
+        Serial.println("\n*** VFS DEAD ***");
+        Serial.println("Filesystem unavailable");
+    }
     
     if (task->task_type == TASK_TYPE_KERNEL) kernel.kernel_tasks--;
     else if (task->task_type == TASK_TYPE_DRIVER) kernel.driver_tasks--;
@@ -880,7 +1242,6 @@ void brutal_task_kill(uint32_t id) {
     task->mem_used = 0;
     task->last_run = get_time_ms();
     
-    // Destroy the task completely
     task->entry = NULL;
     task->callbacks = NULL;
     task->arg = NULL;
@@ -909,6 +1270,12 @@ void cmd_help() {
     Serial.println("  temp       - CPU temperature");
     Serial.println("  clear      - Clear screen");
     Serial.println("  reboot     - Restart system");
+    Serial.println("\n=== Filesystem Commands ===");
+    Serial.println("  ls         - List files");
+    Serial.println("  vfsstat    - Filesystem statistics");
+    Serial.println("  mkfile <name> <type> - Create file (type: 1=text 2=log 3=data)");
+    Serial.println("  rmfile <id>  - Delete file");
+    Serial.println("  cat <id>     - Read file contents");
     Serial.println("\n=== Task Management ===");
     Serial.println("  kill <id>      - Kill task (apps only)");
     Serial.println("  root           - Toggle root mode");
@@ -933,7 +1300,7 @@ void cmd_arch() {
     Serial.println("\nTASK TYPES:");
     Serial.println("  1. KERNEL   - Core system (idle)");
     Serial.println("  2. DRIVER   - Hardware (display, input)");
-    Serial.println("  3. SERVICE  - System services (shell)");
+    Serial.println("  3. SERVICE  - System services (shell, vfs)");
     Serial.println("  4. MODULE   - Extensions (counter, watchdog)");
     Serial.println("  5. APPLICATION - User programs (games)");
     Serial.println("\nONLY APPLICATIONS can be OOM killed!");
@@ -1209,6 +1576,70 @@ void cmd_reboot() {
     while(1);
 }
 
+void cmd_mkfile(char* name, uint8_t type) {
+    if (!kernel.vfs_mounted) {
+        Serial.println("ERROR: VFS not mounted");
+        return;
+    }
+    
+    int fd = vfs_create(name, type, kernel.current_task);
+    if (fd >= 0) {
+        Serial.print("Created file: ");
+        Serial.print(name);
+        Serial.print(" (fd=");
+        Serial.print(fd);
+        Serial.println(")");
+        
+        // Write some sample data
+        char sample[64];
+        snprintf(sample, sizeof(sample), "Sample data for %s\n", name);
+        int written = vfs_write(fd, sample, strlen(sample));
+        if (written > 0) {
+            Serial.print("Wrote ");
+            Serial.print(written);
+            Serial.println(" bytes");
+        }
+    }
+}
+
+void cmd_rmfile(int fd) {
+    if (!kernel.vfs_mounted) {
+        Serial.println("ERROR: VFS not mounted");
+        return;
+    }
+    
+    vfs_delete(fd);
+}
+
+void cmd_cat(int fd) {
+    if (!kernel.vfs_mounted) {
+        Serial.println("ERROR: VFS not mounted");
+        return;
+    }
+    
+    if (fd < 0 || fd >= VFS_MAX_FILES) {
+        Serial.println("ERROR: Invalid file descriptor");
+        return;
+    }
+    
+    VFSFile* file = &kernel.vfs_sb->files[fd];
+    if (!file->in_use) {
+        Serial.println("ERROR: File not in use");
+        return;
+    }
+    
+    char buffer[512];
+    int bytes = vfs_read(fd, buffer, sizeof(buffer) - 1);
+    if (bytes > 0) {
+        buffer[bytes] = '\0';
+        Serial.println("\n=== File Contents ===");
+        Serial.println(buffer);
+        Serial.println("=== End ===");
+    } else {
+        Serial.println("ERROR: Read failed or empty file");
+    }
+}
+
 void shell_execute(char* cmd) {
     if (strlen(cmd) == 0) return;
     
@@ -1237,6 +1668,8 @@ void shell_execute(char* cmd) {
     else if (strcmp(cmd, "temp") == 0) cmd_temp();
     else if (strcmp(cmd, "root") == 0) cmd_root();
     else if (strcmp(cmd, "reboot") == 0) cmd_reboot();
+    else if (strcmp(cmd, "ls") == 0) vfs_list();
+    else if (strcmp(cmd, "vfsstat") == 0) vfs_stats();
     else if (strcmp(cmd, "clear") == 0) {
         Serial.write(0x1B); Serial.print("[2J");
         Serial.write(0x1B); Serial.print("[H");
@@ -1285,6 +1718,24 @@ void shell_execute(char* cmd) {
         uint32_t id = atoi(cmd + 7);
         cmd_resume(id);
     }
+    else if (strncmp(cmd, "mkfile ", 7) == 0) {
+        char* name = strtok(cmd + 7, " ");
+        char* type_str = strtok(NULL, " ");
+        if (name && type_str) {
+            uint8_t type = atoi(type_str);
+            cmd_mkfile(name, type);
+        } else {
+            Serial.println("Usage: mkfile <name> <type>");
+        }
+    }
+    else if (strncmp(cmd, "rmfile ", 7) == 0) {
+        int fd = atoi(cmd + 7);
+        cmd_rmfile(fd);
+    }
+    else if (strncmp(cmd, "cat ", 4) == 0) {
+        int fd = atoi(cmd + 4);
+        cmd_cat(fd);
+    }
     else {
         Serial.print("Unknown: ");
         Serial.println(cmd);
@@ -1316,6 +1767,8 @@ void cpu_monitor_task(void* arg);
 void cpumon_deinit();
 void temp_monitor_task(void* arg);
 void tempmon_deinit();
+void vfs_task(void* arg);
+void vfs_deinit();
 
 ModuleCallbacks display_callbacks = {
     .init = display_init,
@@ -1347,6 +1800,12 @@ ModuleCallbacks tempmon_callbacks = {
     .deinit = tempmon_deinit
 };
 
+ModuleCallbacks vfs_callbacks = {
+    .init = NULL,
+    .tick = vfs_task,
+    .deinit = vfs_deinit
+};
+
 // =========================================================================
 // Core System Tasks
 // =========================================================================
@@ -1371,7 +1830,7 @@ void display_init() {
     tft.setTextColor(ILI9341_WHITE);
     tft.setTextSize(2);
     tft.setCursor(10, 5);
-    tft.print("RP2040 Kernel v6.0");
+    tft.print("RP2040 Kernel v7.0");
     
     Serial.println("[DISPLAY] Initialized");
 }
@@ -1585,6 +2044,44 @@ void temp_monitor_task(void* arg) {
 void tempmon_deinit() {
     Serial.println("[TEMPMON] DEINIT");
     kernel.tempmon_alive = false;
+}
+
+void vfs_task(void* arg) {
+    if (!kernel.vfs_alive) {
+        task_sleep(10000);
+        return;
+    }
+    
+    // Periodic VFS maintenance
+    static uint32_t last_maintenance = 0;
+    uint32_t now = get_time_ms();
+    
+    if (now - last_maintenance > 30000) {  // Every 30 seconds
+        if (kernel.vfs_mounted) {
+            // Could perform maintenance tasks here
+            // For now, just update timestamp
+            last_maintenance = now;
+        }
+    }
+    
+    task_sleep(5000);
+}
+
+void vfs_deinit() {
+    Serial.println("[VFS] DEINIT");
+    vfs_unmount();
+    
+    if (kernel.vfs_data) {
+        kfree(kernel.vfs_data);
+        kernel.vfs_data = NULL;
+    }
+    
+    if (kernel.vfs_sb) {
+        kfree(kernel.vfs_sb);
+        kernel.vfs_sb = NULL;
+    }
+    
+    kernel.vfs_alive = false;
 }
 
 // =========================================================================
@@ -2130,6 +2627,14 @@ void sysmon_task(void* arg) {
     snprintf(buf, sizeof(buf), "OOM: %d", kernel.oom_kills);
     tft.print(buf);
     
+    tft.setCursor(10, 175);
+    if (kernel.vfs_mounted) {
+        snprintf(buf, sizeof(buf), "VFS: %d files", kernel.vfs_sb->file_count);
+    } else {
+        snprintf(buf, sizeof(buf), "VFS: Not mounted");
+    }
+    tft.print(buf);
+    
     task_sleep(1000);
 }
 
@@ -2162,17 +2667,15 @@ void setup() {
     Serial.begin(115200);
     delay(2000);
     
-    // Initialize LED for panic indicator
     pinMode(LED_BUILTIN, OUTPUT);
     digitalWrite(LED_BUILTIN, LOW);
     
     Serial.println("\n\n========================================");
-    Serial.println("  RP2040 Kernel v6.0 - FIXED");
+    Serial.println("  RP2040 Kernel v7.0 - VFS Edition");
     Serial.println("  Full UNIX-like Operating System");
     Serial.println("========================================");
     Serial.println("Initializing...");
     
-    // Initialize GPIO for buttons
     uint8_t buttons[] = {BTN_LEFT, BTN_RIGHT, BTN_TOP, BTN_BOTTOM, 
                          BTN_SELECT, BTN_START, BTN_A, BTN_B, BTN_ONOFF};
     for (int i = 0; i < 9; i++) {
@@ -2192,16 +2695,21 @@ void setup() {
     task_init();
     Serial.println("[OK] Task scheduler");
     
+    vfs_init();
+    if (kernel.vfs_sb && kernel.vfs_data) {
+        Serial.println("[OK] VFS initialized");
+    } else {
+        Serial.println("[WARN] VFS init failed");
+    }
+    
     Serial.println("\n=== Loading System Tasks ===");
     
-    // KERNEL TASK - IF THIS DIES, SYSTEM DIES
     task_create("idle", idle_task, NULL, 0,
                 TASK_TYPE_KERNEL, TASK_FLAG_PROTECTED | TASK_FLAG_CRITICAL | TASK_FLAG_RESPAWN, 0,
                 OOM_PRIORITY_NEVER, 0, NULL,
                 "Kernel idle task");
     Serial.println("[OK] Idle (KERNEL - CRITICAL!)");
     
-    // DRIVER TASKS
     task_create("display", display_task, NULL, 2,
                 TASK_TYPE_DRIVER, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 0,
                 OOM_PRIORITY_NEVER, 4 * 1024, &display_callbacks,
@@ -2214,7 +2722,6 @@ void setup() {
                 "Button input driver");
     Serial.println("[OK] Input driver");
     
-    // SERVICE TASKS
     task_create("shell", shell_task, NULL, 3,
                 TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 0,
                 OOM_PRIORITY_NEVER, 4 * 1024, &shell_callbacks,
@@ -2233,7 +2740,18 @@ void setup() {
                 "Temperature monitor");
     Serial.println("[OK] Temp monitor");
     
-    // Load user modules
+    if (kernel.vfs_sb && kernel.vfs_data) {
+        task_create("vfs", vfs_task, NULL, 2,
+                    TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 0,
+                    OOM_PRIORITY_NEVER, 4 * 1024, &vfs_callbacks,
+                    "Virtual filesystem service");
+        Serial.println("[OK] VFS service");
+        
+        if (vfs_mount()) {
+            Serial.println("[OK] VFS mounted");
+        }
+    }
+    
     addModules();
     
     Serial.println("\n========================================");
@@ -2241,6 +2759,9 @@ void setup() {
     Serial.println("========================================");
     Serial.print("Heap:      "); Serial.print(HEAP_SIZE / 1024); Serial.println(" KB");
     Serial.print("Tasks:     "); Serial.print(kernel.task_count); Serial.println(" loaded");
+    if (kernel.vfs_mounted) {
+        Serial.print("VFS:       "); Serial.print(VFS_STORAGE_SIZE / 1024); Serial.println(" KB");
+    }
     
     Serial.println("\n=== Task Architecture ===");
     Serial.println("KERNEL:   Core system - IMMORTAL");
@@ -2248,6 +2769,11 @@ void setup() {
     Serial.println("SERVICE:  System services - IMMORTAL");
     Serial.println("MODULE:   Extensions - OOM PROTECTED");
     Serial.println("APP:      User programs - OOM KILLABLE");
+    
+    Serial.println("\n=== Filesystem ===");
+    Serial.println("Virtual filesystem available");
+    Serial.println("Commands: ls, mkfile, rmfile, cat, vfsstat");
+    Serial.println("Example: mkfile test.txt 1");
     
     Serial.println("\n*** ROOT KILL WARNING ***");
     Serial.println("Killing the 'idle' task (ID 0) will");
@@ -2265,7 +2791,6 @@ void setup() {
 }
 
 void loop() {
-    // If kernel state is corrupted, CPU just stops - no tasks can run
     if (kernel.current_task >= MAX_TASKS) {
         disable_all_interrupts();
         while(1) { 
@@ -2273,7 +2798,6 @@ void loop() {
         }
     }
     
-    // If kernel.running is false, everything stops
     if (!kernel.running) {
         disable_all_interrupts();
         while(1) { 
@@ -2281,7 +2805,6 @@ void loop() {
         }
     }
     
-    // If task_count is 0, scheduler has nothing to run - halt
     if (kernel.task_count == 0) {
         disable_all_interrupts();
         Serial.println("NO TASKS - HALT");
@@ -2295,7 +2818,6 @@ void loop() {
     
     scheduler_tick();
     
-    // If idle task (kernel) is dead, nothing can run - absolute halt
     if (kernel.tasks[0].state == TASK_TERMINATED || kernel.tasks[0].entry == NULL) {
         disable_all_interrupts();
         digitalWrite(LCD_LED, LOW);
