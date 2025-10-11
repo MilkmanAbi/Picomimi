@@ -5,7 +5,7 @@ Picomimi is a tiny, playful "OS/kernel"... kinda thing for the **RP2040**. Ardui
 Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, task-based system** on your Pico. You can run multiple tasks, interact with the "kernel" through a serial shell, and explore system behaviour in real-time. It's built for **playful experimentation** and learning, offering a tiny playground for microcontroller enthusiasts.
 
 ![Picomimi mascot](assets/Picomimi_Milkman.png)
-*Picomimi ready for fun experiments! - AI generated image, for fun, don't judge.*
+*Picomimi ready for fun experiments! - AI-generated image, for fun, don't judge.*
 
 ---
 
@@ -68,5 +68,5 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
 Picomimi is meant to be **lightweight, approachable, and fun**. It's small enough to be uploaded quickly, easy enough to play with immediately, and encourages experimentation with **tasks, memory, and hardware peripherals**.
 
-Picomimi is messy, broken, honestly just bad, but it's a fun project **(・∀・)**.
-- Disclaimer: This is a project made heavily with AI, though I have coded many parts in this project too; I am a hardware enthusiast, not a programmer.
+Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
+- Disclaimer: This is a project made heavily with AI, though I have coded many parts in this project too; I am a hardware enthusiast, not a programmer. (⇀‸↼‶)
