@@ -1,0 +1,92 @@
+//Rough feature list, honestly I got too lazy to write this. Just reference I guess.
+
+Core Kernel & Scheduler
+Cooperative (non-preemptive) multitasking scheduler.
+
+Fixed maximum of 32 tasks.
+
+Task Control Block (TCB) with support for multiple states (READY, RUNNING, WAITING, SUSPENDED, TERMINATED).
+
+Time-based task sleeping (task_sleep).
+
+Task creation with configurable priority, type, and flags.
+
+Task flags including PROTECTED, CRITICAL, RESPAWN, and ONESHOT.
+
+Automatic respawning of critical tasks upon termination.
+
+Module support with init, tick, and deinit lifecycle callbacks.
+
+Memory Management
+Custom dynamic memory manager using a static 180KB heap.
+
+Block-based allocation (kmalloc/kfree) with a maximum of 256 blocks.
+
+Per-task memory ownership and usage tracking (current and peak).
+
+Optional memory limits for application-type tasks.
+
+On-demand memory compaction to reduce fragmentation.
+
+Out-of-Memory (OOM) killer that selectively terminates tasks based on type and priority.
+
+Calculates and reports memory fragmentation percentage.
+
+Task Architecture
+Five distinct task types for system hierarchy:
+
+KERNEL
+
+DRIVER
+
+SERVICE
+
+MODULE
+
+APPLICATION
+
+Built-in protection: Only APPLICATION tasks are killable by the OOM killer.
+
+"Root mode" for administrators to override protections and kill any non-kernel task.
+
+Virtual Filesystem (VFS)
+In-memory, non-persistent virtual filesystem (data is lost on reboot).
+
+128KB total storage size with 256-byte blocks.
+
+Support for a maximum of 16 files, each up to 16KB in size.
+
+Basic file operations: create, read, write, and delete.
+
+File metadata tracking (name, type, size, timestamps, owner task ID).
+
+Bitmap-based block allocation tracking.
+
+Shell & Commands
+Serial-based command-line interface (shell).
+
+System Info: ps, mem, memmap, dmesg, uptime, temp, top, arch.
+
+Task Management: kill, root kill, suspend, resume.
+
+Memory Management: compact.
+
+Filesystem: ls, vfsstat, mkfile, rmfile, cat.
+
+System Control: reboot, clear, root.
+
+Drivers & Monitoring
+ILI9341 SPI display driver with a basic graphical status bar.
+
+GPIO driver for up to 9 hardware buttons.
+
+On-chip temperature sensor driver.
+
+System services for monitoring CPU usage and temperature.
+
+System logging (klog) with a 40-entry in-memory circular buffer.
+
+Built-in Software
+Applications: Snake game, digital clock, graphical system monitor, memory stress test, CPU burn-in test.
+
+Modules: A simple counter and a system health watchdog.
