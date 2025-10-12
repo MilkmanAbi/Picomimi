@@ -54,6 +54,7 @@
 #define FS_MAX_OPEN_FILES 8
 #define FS_BUFFER_SIZE 512
 #define FS_MAX_CARD_SIZE (4ULL * 1024 * 1024 * 1024)
+#define FS_LOG_FILE "/LogRecord"
 
 enum TaskState : uint8_t {
     TASK_READY,
@@ -223,6 +224,7 @@ struct KernelState {
     uint64_t fs_used_bytes;
     uint32_t fs_reads;
     uint32_t fs_writes;
+    uint32_t fs_log_counter;
     FSFile fs_open_files[FS_MAX_OPEN_FILES];
     
     uint8_t heap[HEAP_SIZE];
@@ -279,6 +281,8 @@ void fs_close(int fd);
 int fs_write_str(int fd, const char* data);
 int fs_read_str(int fd, char* buffer, size_t size);
 void fs_cat(const char* path);
+void fs_log_init();
+void fs_log_write(const char* message);
 
 static inline uint64_t get_time_us() {
     return micros();
@@ -312,6 +316,10 @@ void klog(uint8_t level, const char* msg) {
     }
     
     restore_interrupts(irq_state);
+    
+    if (kernel.fs_mounted && level >= 2) {
+        fs_log_write(msg);
+    }
 }
 
 void vfs_init() {
@@ -590,6 +598,7 @@ void fs_init() {
     kernel.fs_used_bytes = 0;
     kernel.fs_reads = 0;
     kernel.fs_writes = 0;
+    kernel.fs_log_counter = 0;
     
     for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
         kernel.fs_open_files[i].open = false;
@@ -652,6 +661,71 @@ void fs_init() {
     klog(0, "FS: Init OK");
 }
 
+void fs_log_init() {
+    if (!kernel.fs_available) return;
+    
+    File logFile = SD.open(FS_LOG_FILE, FILE_READ);
+    if (!logFile) {
+        Serial.println("[FS] Creating LogRecord file");
+        logFile = SD.open(FS_LOG_FILE, FILE_WRITE);
+        if (logFile) {
+            logFile.println("=== RP2040 Kernel Error Log ===");
+            logFile.println("Format: [N] Timestamp Message");
+            logFile.println("================================");
+            logFile.close();
+            kernel.fs_log_counter = 0;
+            Serial.println("[FS] LogRecord created");
+        } else {
+            Serial.println("[FS] Failed to create LogRecord");
+            return;
+        }
+    } else {
+        kernel.fs_log_counter = 0;
+        while (logFile.available()) {
+            String line = logFile.readStringUntil('\n');
+            if (line.startsWith("[")) {
+                int endBracket = line.indexOf(']');
+                if (endBracket > 0) {
+                    String numStr = line.substring(1, endBracket);
+                    uint32_t num = numStr.toInt();
+                    if (num > kernel.fs_log_counter) {
+                        kernel.fs_log_counter = num;
+                    }
+                }
+            }
+        }
+        logFile.close();
+        
+        Serial.print("[FS] LogRecord found, last entry: ");
+        Serial.println(kernel.fs_log_counter);
+    }
+}
+
+void fs_log_write(const char* message) {
+    if (!kernel.fs_mounted) return;
+    
+    File logFile = SD.open(FS_LOG_FILE, FILE_WRITE);
+    if (!logFile) {
+        return;
+    }
+    
+    kernel.fs_log_counter++;
+    
+    char timestamp[32];
+    uint64_t ms = get_time_ms();
+    snprintf(timestamp, sizeof(timestamp), "%lu.%03lu", 
+             (uint32_t)(ms / 1000), (uint32_t)(ms % 1000));
+    
+    logFile.print("[");
+    logFile.print(kernel.fs_log_counter);
+    logFile.print("] ");
+    logFile.print(timestamp);
+    logFile.print(" ");
+    logFile.println(message);
+    
+    logFile.close();
+}
+
 bool fs_mount() {
     if (!kernel.fs_available) {
         Serial.println("[FS] SD card unavailable");
@@ -660,6 +734,8 @@ bool fs_mount() {
     
     kernel.fs_mounted = true;
     kernel.fs_alive = true;
+    
+    fs_log_init();
     
     Serial.println("[FS] Mounted");
     klog(0, "FS: Mounted");
@@ -1498,6 +1574,7 @@ void cmd_help() {
     Serial.println("  rm <path>    - Delete file");
     Serial.println("  cat <path>   - Read file");
     Serial.println("  write <path> <text> - Write text to file");
+    Serial.println("  logcat     - View error log from SD");
     Serial.println("\n=== Task Management ===");
     Serial.println("  kill <id>      - Kill task (apps only)");
     Serial.println("  root           - Toggle root mode");
@@ -2157,6 +2234,9 @@ void shell_execute(char* cmd) {
         } else {
             Serial.println("Usage: write <path> <text>");
         }
+    }
+    else if (strcmp(cmd, "logcat") == 0) {
+        fs_cat(FS_LOG_FILE);
     }
     else {
         Serial.print("Unknown: ");
@@ -3091,7 +3171,7 @@ void sysmon_spawn() {
 void setup() {
     Serial.begin(115200);
     delay(2000);
-    
+
     Serial.println("\n\n========================================");
     Serial.println("  RP2040 Kernel v8 - SD FS Edition");
     Serial.println("  Picomimi Kernel v8");
