@@ -3092,9 +3092,6 @@ void setup() {
     Serial.begin(115200);
     delay(2000);
     
-    pinMode(LED_BUILTIN, OUTPUT);
-    digitalWrite(LED_BUILTIN, LOW);
-    
     Serial.println("\n\n========================================");
     Serial.println("  RP2040 Kernel v8 - SD FS Edition");
     Serial.println("  Picomimi Kernel v8");
