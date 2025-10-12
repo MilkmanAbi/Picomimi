@@ -67,7 +67,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 5.  Upload the sketch to your RP2040.
 6.  Open a serial terminal and start interacting with the Picomimi shell.
 
-Picomimi is meant to be **lightweight, approachable, and fun**. It's small enough to be uploaded quickly, easy enough to play with immediately, and encourages experimentation with **tasks, memory, and hardware peripherals**. ...Currently, all logging and error reporting in Picomimi is broken. Notes in the code where removed, and will be put back soon.
+Picomimi is meant to be **lightweight, approachable, and fun**. It's small enough to be uploaded quickly, easy enough to play with immediately, and encourages experimentation with **tasks, memory, and hardware peripherals**.
 
 Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
 - Disclaimer: This is a project made heavily with AI, though I have coded many many parts in this project too; I am a hardware enthusiast, not a programmer. (⇀‸↼‶)
