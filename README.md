@@ -52,8 +52,9 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
 ## Recommended Setup
 
-* **Overclocking:** For smoother operation, overclock your RP2040 to **225 MHz, 240 MHz, 250 MHz or 276 MHz**.
-* **Serial Terminal:** Use `picocom` or a similar serial terminal at **115200 baud** to interact with the shell.
+* **Overclocking:** For smoother performance, overclock your RP2040 to **225 MHz, 240 MHz, 250 MHz, or 276 MHz**.
+* In the Arduino IDE, set **“Optimize Even More (-O3)”** under the optimization settings.
+* **Serial Terminal:** Use `picocom` or another serial terminal at **115200 baud** to interact with the Picomimi shell.
 
 ---
 
@@ -69,4 +70,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 Picomimi is meant to be **lightweight, approachable, and fun**. It's small enough to be uploaded quickly, easy enough to play with immediately, and encourages experimentation with **tasks, memory, and hardware peripherals**.
 
 Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
-- Disclaimer: This is a project made heavily with AI, though I have coded many parts in this project too; I am a hardware enthusiast, not a programmer. (⇀‸↼‶)
+- Disclaimer: This is a project made heavily with AI, though I have coded many many parts in this project too; I am a hardware enthusiast, not a programmer. (⇀‸↼‶)
+
+**NOTE:**
+This project is compatible with most RP2040 boards and provides terminal commands via serial. Missing hardware won’t break the system — the Picomimi kernel will simply ignore any components that aren’t connected, so no code modifications are required. Picomimi will operate even without any modules connected. Unlike my Picomimi-Board, it can operate happily on a bare RP2040.
