@@ -44,7 +44,6 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
     * **Adafruit GFX Library** (for graphics support)
     * **Adafruit ILI9341** (for display control)
-    * **SPI** (built-in with Arduino IDE)
 
 > **Note:** The RP2040 SDK headers (`hardware/adc.h`, `hardware/watchdog.h`, `hardware/sync.h`, `pico/platform.h`) are included automatically with the board package—you don't need to install them manually.
 
@@ -52,7 +51,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
 ## Recommended Setup
 
-* **Overclocking:** For smoother performance, overclock your RP2040 to **225 MHz, 240 MHz, 250 MHz, or 276 MHz**.
+* **Overclocking:** For smoother performance, overclock your RP2040 to **225 MHz, 240 MHz, 250 MHz, or 276 MHz. Best kept to 225MHz for stability across most boards.**.
 * In the Arduino IDE, set **“Optimize Even More (-O3)”** under the optimization settings.
 * **Serial Terminal:** Use `picocom` or another serial terminal at **115200 baud** to interact with the Picomimi shell.
 
