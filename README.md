@@ -35,7 +35,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
     * Go to **File → Preferences → Additional Boards Manager URLs** and add:
 
         ```
-        [https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json](https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json)
+        https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
         ```
 
     * Then open **Tools → Board → Boards Manager**, search for `Raspberry Pi RP2040` and install the package.
