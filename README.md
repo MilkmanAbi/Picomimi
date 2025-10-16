@@ -2,12 +2,12 @@
 
 Picomimi is a tiny, playful "OS/kernel"... kinda thing for the **RP2040**. Arduino-IDE-ready and easy to use, it's built for casual tinkering, fun experiments, and bare-metal chaos—bringing Arduino-style simplicity to your Pico projects while letting you push the microcontroller to its limits - Simple and cute **(＾_＾)**.
 
-Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, task-based system** on your Pico. You can run multiple tasks, interact with the "kernel" through a serial shell, and explore system behaviour in real-time. It's built for **playful experimentation** and learning, offering a tiny playground for microcontroller enthusiasts.
+Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, task-based system** on your Pico. You can run multiple tasks, interact with the "kernel" through a serial shell, and explore system behaviour in real-time. It's built for **playful experimentation** and learning, offering a tiny playground for microcontroller enthusiasts.arduino
 
 ![Picomimi mascot](assets/Picomimi_Milkman.png)
 *Picomimi ready for fun experiments! - AI-generated image, for fun, don't judge.*
 
----
+---arduino
 
 ## Features
 
@@ -62,7 +62,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 1.  Install **Arduino IDE** and the RP2040 board support package.
 2.  Clone or download the **Picomimi** repository.
 3.  Open the main `.ino` file in Arduino IDE.
-4.  Make sure the dependencies listed above are installed.
+4. arduino Make sure the dependencies listed above are installed.
 5.  Upload the sketch to your RP2040.
 6.  Open a serial terminal and start interacting with the Picomimi shell.
 
@@ -73,3 +73,7 @@ Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
 
 **NOTE:**
 This project is compatible with most RP2040 boards and provides terminal commands via serial. Missing hardware won’t break the system — the Picomimi kernel will simply ignore any components that aren’t connected, so no code modifications are required. Picomimi will operate even without any modules connected. Unlike my Picomimi-Board, it can operate happily on a bare RP2040.
+
+___
+
+Future plan: Remove all Arduino IDE wrappers while keeping it Arduino IDE uploadable, improve efficiency, speed up, utilise PIO as a coprocessor, improve DMA util.
