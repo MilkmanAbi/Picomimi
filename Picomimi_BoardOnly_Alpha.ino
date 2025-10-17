@@ -4,6 +4,8 @@
 //MIGHT BE VERY MUCH BROKEN.
 //https://imgur.com/a/nYttn9v Picomimi v8.5 Keyboard Demo
 
+//KNOWN ISSUE #1 [SD Init on boot is improper. Improper reset/reboot will cause SD card to be undetected on adjacent boot.]
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
