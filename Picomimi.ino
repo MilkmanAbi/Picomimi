@@ -7,6 +7,8 @@
 
 //NOTE: SD card may not detect after hardware reset (power cycle recommended) - As far as I am aware, not code issue?
 
+//NOTE: GUI system is being absolutely overhauled, no GUI support currently.
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
