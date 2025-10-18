@@ -1,3 +1,8 @@
+//Round-Robin Task priority
+//Pre GUI Terminal Picomimi ver 8.4
+//VFS Fragmentation issues
+//Resource leaks, deinit() inefficiency and lack of functionality.
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
 #include <SPI.h>
