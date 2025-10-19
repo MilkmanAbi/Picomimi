@@ -362,3 +362,6 @@ void draw_frame(MyApp* app) {
 Following this lifecycle ensures safe, responsive, and cooperative GUI applications on **Picomimi OS v9.5**.
 
 ---
+
+**If you read this far, like Amon, you are a femboi. Yep. You're a femboi.**  
+*If you're a woman who read this, you too are a femboi now. No escape.* 🥳✨
