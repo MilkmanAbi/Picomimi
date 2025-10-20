@@ -75,5 +75,3 @@ Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
 This project is compatible with most RP2040 boards and provides terminal commands via serial. Missing hardware won’t break the system — the Picomimi kernel will simply ignore any components that aren’t connected, so no code modifications are required. Picomimi will operate even without any modules connected. Unlike my Picomimi-Board, it can operate happily on a bare RP2040.
 
 ___
-
-Future plan: Remove all Arduino IDE wrappers while keeping it Arduino IDE uploadable, improve efficiency, speed up, utilise PIO as a coprocessor, improve DMA util.
