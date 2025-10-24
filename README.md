@@ -61,8 +61,8 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
 1.  Install **Arduino IDE** and the RP2040 board support package.
 2.  Clone or download the **Picomimi** repository.
-3.  Open the main `.ino` file in Arduino IDE.
-4. arduino Make sure the dependencies listed above are installed.
+3.  **Open the main `Picomimi.ino` file in Arduino IDE, go to Sketch -> Add File... and add any application sketch from the "app" folder.**
+4.  Make sure the dependencies listed above are installed.
 5.  Upload the sketch to your RP2040.
 6.  Open a serial terminal and start interacting with the Picomimi shell.
 
