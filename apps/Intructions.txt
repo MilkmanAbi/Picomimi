@@ -1,0 +1,6 @@
+    }
+    else if (strcmp(cmd, "snake") == 0) {
+        extern void snake_spawn(); // This tells the shell the function exists
+        snake_spawn();             // This calls the function from snake_app.ino
+    }
+Add something like this under void shell_execute(char* cmd) elseif chunks, and just yeah. maybe add app to help command
