@@ -1,8 +1,4 @@
 //Picomimi v9.6.1 - Base Kernel Edition
-//CHANGES FROM v9.6.1 (Bad Apple!!):
-//- REMOVED: Snake game application
-//- REMOVED: Bad Apple!! GIF player application
-//- REMOVED: AnimatedGIF library dependency
 
 #include <Adafruit_GFX.h>
 #include <Adafruit_ILI9341.h>
