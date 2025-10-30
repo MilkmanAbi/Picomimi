@@ -34,7 +34,7 @@ To compile and upload Picomimi using the **Arduino IDE**, make sure you have the
 
     * Go to **File → Preferences → Additional Boards Manager URLs** and add:
 
-        ```
+        ```an depreciated
         https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
         ```
 
@@ -75,3 +75,6 @@ Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
 This project is compatible with most RP2040 boards and provides terminal commands via serial. Missing hardware won’t break the system — the Picomimi kernel will simply ignore any components that aren’t connected, so no code modifications are required. Picomimi will operate even without any modules connected. Unlike my Picomimi-Board, it can operate happily on a bare RP2040.
 
 ___
+
+**NEW RELEASE ROLLING OUT**
+Picomimi v10 will bring about very very large changes, paving the pathway for further development. With the release of v10, all previous versions will be redundant and deprecated.
