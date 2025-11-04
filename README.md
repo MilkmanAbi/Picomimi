@@ -7,7 +7,7 @@ Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, 
 ![Picomimi mascot](assets/Picomimi_Milkman.png)
 *Picomimi ready for fun experiments! - AI-generated image, for fun, don't judge.*
 
----arduino
+---
 
 ## Features
 
