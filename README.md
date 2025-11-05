@@ -1,80 +1,138 @@
 # Picomimi
 
-Picomimi is a tiny, playful "OS/kernel"... kinda thing for the **RP2040**. Arduino-IDE-ready and easy to use, it's built for casual tinkering, fun experiments, and bare-metal chaos—bringing Arduino-style simplicity to your Pico projects while letting you push the microcontroller to its limits - Simple and cute **(＾_＾)**.
+> A tiny, playful Dual-Core Microkernel for the RP2040
 
-Picomimi is more than just an Arduino `loop()`—it introduces a **lightweight, task-based system** on your Pico. You can run multiple tasks, interact with the "kernel" through a serial shell, and explore system behaviour in real-time. It's built for **playful experimentation** and learning, offering a tiny playground for microcontroller enthusiasts.arduino
+**Arduino-IDE-ready and easy to use**, Picomimi is built for casual tinkering, fun experiments, and bare-metal chaos—bringing high-grade stability to your Pico projects while letting you push the microcontroller to its limits. Simple and cute (＾_＾).
 
-![Picomimi mascot](assets/Picomimi_Milkman.png)
-*Picomimi ready for fun experiments! - AI-generated image, for fun, don't judge.*
+![Picomimi mascot](assets/Picomimi_Mascot.png)  
+*Picomimi ready for fun experiments!*
 
 ---
 
-## Features
+## What Makes Picomimi Different?
 
-* **Tiny, Easy-to-Use "Kernel":** Designed for simplicity and Arduino IDE upload, Picomimi runs straight out of the box on RP2040 boards.
-* **Task-Based System:** Supports multiple tasks running concurrently in a cooperative multitasking model. Great for experimenting with scheduling and task management.
-* **Interactive Shell:** Connect via serial using:
+Picomimi is more than just an Arduino `loop()`—it introduces a **robust, service-oriented platform** that guarantees CPU time and resources for your applications. The kernel's job is enablement; hardware control is now implemented by your application code, allowing you to build whatever complex system you need on top of a single, stable foundation.
 
-    ```bash
-    picocom /dev/ttyACM0 -b 115200
-    ```
+---
 
-    Use the shell to inspect tasks, check memory usage, and interact with the system in real time.
-* **Memory Management:** Includes a small heap and basic memory tracking to explore dynamic memory allocation on a microcontroller.
-* **Driver Tasks:** Modular drivers for display, input, and monitoring hardware are implemented as tasks for easy experimentation.
-* **Task Lifecycle Control:** Create, suspend, resume, and terminate tasks interactively. Learn the basics of OS-style task management on tiny hardware.
+## Key Architectural Features (V10 M2 Microkernel)
+
+Picomimi's core kernel is designed for efficiency and stability, making it a powerful learning tool and a reliable base for complex projects:
+
+### **Minimalist Dual-Core**
+Fully utilizes the RP2040's two cores with high-performance Inter-Core Communication (IPC). The kernel is lean; all non-essential hardware (like displays or complex buttons) is handled by separate application tasks.
+
+### **O(1) Bitmap Scheduler**
+Supports true concurrent multitasking with a guaranteed low-latency task selection. Learn advanced, high-performance scheduling concepts commonly seen in professional RTOS environments.
+
+### **Intelligent Memory Management**
+Features custom kernel memory allocation (`kmalloc` and `kfree`) with task-specific accounting and a Graceful Out-of-Memory (OOM) Killer. This system prevents crashes by intelligently recovering memory before system failure.
+
+### **Essential Persistent Storage**
+The kernel treats the SD card as a fundamental resource for file system services and application data. *(Seriously, if you ain't have an SD card, what are you even doing, bruh? It'll still work without it, but come on…)*
+
+### **Service Isolation**
+The kernel guarantees stability, while your applications handle the complex interactions. This is a platform for Software Enablement, where you define the hardware and services.
+
+### **Kernel Panic Handler**
+Built-in system protection to catch critical failures and provide diagnostic information, ensuring maximum uptime.
+
+---
+
+## Interactive Shell & Task Management
+
+### **Interactive Shell**
+Connect via serial using:
+
+```bash
+# Linux
+picocom /dev/ttyACM0 -b 115200
+
+# Windows
+ttermpro.exe /C=3 /BAUD=115200
+
+# macOS
+screen /dev/tty.usbmodemxxxxx 115200
+```
+
+Use the shell to inspect tasks, check memory usage, and interact with the system in real time, including advanced commands like `schedstat` and `oomstat`.
+
+### **Task Lifecycle Control**
+Create, suspend, resume, and terminate tasks interactively. See the basics of OS-style task management on tiny hardware.
 
 ---
 
 ## Dependencies
 
-To compile and upload Picomimi using the **Arduino IDE**, make sure you have the following installed:
+To compile and upload Picomimi using the Arduino IDE, make sure you have the following installed:
 
-1.  **RP2040 / Raspberry Pi Pico board support**
+### **RP2040 / Raspberry Pi Pico Board Support**
 
-    * Go to **File → Preferences → Additional Boards Manager URLs** and add:
+1. Go to **File → Preferences → Additional Boards Manager URLs** and add:
+   ```
+   https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+   ```
 
-        ```an depreciated
-        https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-        ```
+2. Open **Tools → Board → Boards Manager**, search for **Raspberry Pi RP2040** and install the package.
 
-    * Then open **Tools → Board → Boards Manager**, search for `Raspberry Pi RP2040` and install the package.
+### **Required Libraries**
+Install via **Sketch → Include Library → Manage Libraries**:
 
-2.  **Required Libraries** (install via **Sketch → Include Library → Manage Libraries**):
+- **Adafruit GFX Library** (required if using the display driver application)
+- **Adafruit ILI9341** (required if using the display driver application)
 
-    * **Adafruit GFX Library** (for graphics support)
-    * **Adafruit ILI9341** (for display control)
-
-> **Note:** The RP2040 SDK headers (`hardware/adc.h`, `hardware/watchdog.h`, `hardware/sync.h`, `pico/platform.h`) are included automatically with the board package—you don't need to install them manually.
+> **Note:** The RP2040 SDK headers are included automatically with the board package—you don't need to install them manually.
 
 ---
 
 ## Recommended Setup
 
-* **Overclocking:** For smoother performance, overclock your RP2040 to **225 MHz, 240 MHz, 250 MHz, or 276 MHz. Best kept to 225MHz for stability across most boards.**.
-* In the Arduino IDE, set **“Optimize Even More (-O3)”** under the optimization settings.
-* **Serial Terminal:** Use `picocom` or another serial terminal at **115200 baud** to interact with the Picomimi shell.
+### **Overclocking**
+For smoother performance, overclock your RP2040 to **225 MHz**, 240 MHz, 250 MHz, or 276 MHz. Best kept to **225MHz** for stability across most boards.
+
+In the Arduino IDE, set **"Optimize Even More (-O3)"** under the optimization settings.
+
+### **Serial Terminal**
+Use `picocom` or another serial terminal at **115200 baud** to interact with the Picomimi shell.
 
 ---
 
 ## Getting Started
 
-1.  Install **Arduino IDE** and the RP2040 board support package.
-2.  Clone or download the **Picomimi** repository.
-3.  **Open the main `Picomimi.ino` file in Arduino IDE, go to Sketch -> Add File... and add any application sketch from the "app" folder.**
-4.  Make sure the dependencies listed above are installed.
-5.  Upload the sketch to your RP2040.
-6.  Open a serial terminal and start interacting with the Picomimi shell.
+1. Install **Arduino IDE** and the **RP2040 board support package**.
+2. Clone or download the Picomimi repository.
+3. Open the main **Picomimi.ino** file in Arduino IDE.
+4. Go to **Sketch → Add File...** and add any application sketch from the `app` folder.
+5. Make sure the dependencies listed above are installed.
+6. Upload the sketch to your RP2040.
+7. Open a serial terminal and start interacting with the Picomimi shell.
 
-Picomimi is meant to be **lightweight, approachable, and fun**. It's small enough to be uploaded quickly, easy enough to play with immediately, and encourages experimentation with **tasks, memory, and hardware peripherals**.
+---
 
-Picomimi is messy, broken, honestly just bad, but it's a fun project (￣︿￣)
-- Disclaimer: This is a project made heavily with AI, though I have coded many many parts in this project too; I am a hardware enthusiast, not a programmer. (⇀‸↼‶)
+## Hardware Compatibility
 
-**NOTE:**
-This project is compatible with most RP2040 boards and provides terminal commands via serial. Missing hardware won’t break the system — the Picomimi kernel will simply ignore any components that aren’t connected, so no code modifications are required. Picomimi will operate even without any modules connected. Unlike my Picomimi-Board, it can operate happily on a bare RP2040.
+Picomimi is designed to be **stable, efficient, and fun**. It encourages experimentation with dual-cores, advanced memory management, and hardware peripherals.
 
-___
+This project is compatible with nearly all RP2040 boards and provides terminal commands via serial. Missing hardware won't break the system—the Picomimi kernel will simply ignore any components that aren't connected. *(Seriously, though, just add an SD card…)*
 
-**NEW RELEASE ROLLING OUT**
-Picomimi v10 will bring about very very large changes, paving the pathway for further development. With the release of v10, all previous versions will be redundant and deprecated.
+---
+
+## Current Status
+
+**Architecturally viable and Stable**
+
+The core kernel is finished and stable, marking the successful end of the project's primary engineering goal. All future work (V10 M2+) will focus on refining the developer experience and simplifying application integration.
+
+---
+
+## License
+
+This project is licensed under the **MIT License** - see the LICENSE file for details.
+
+## Contributing
+
+Contributions are welcome! Feel free to fork, modify, and build upon Picomimi. If you use it in your projects or create something cool with it, a gentle credit back to the original project would be appreciated (but not required). Share the love! ♡
+
+## Support
+
+For issues, questions, or discussions, please use the GitHub Issues page or check the repository for updates and community contributions.
