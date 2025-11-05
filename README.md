@@ -1,6 +1,6 @@
 # Picomimi
 
-> A tiny, playful Dual-Core Microkernel for the RP2040
+> A tiny, educational and productive Dual-Core Microkernel for the RP2040
 
 **Arduino-IDE-ready and easy to use**, Picomimi is built for casual tinkering, fun experiments, and bare-metal chaos—bringing high-grade stability to your Pico projects while letting you push the microcontroller to its limits. Simple and cute (＾_＾).
 
