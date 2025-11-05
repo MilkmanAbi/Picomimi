@@ -534,6 +534,9 @@ struct KernelState {
 // --- GLOBAL KERNEL STATE ---
 static KernelState kernel __attribute__((aligned(64)));
 
+// --- FIX: ADD MUTEX FOR KOUT ---
+static mutex_t kout_mutex;
+
 // --- GLOBAL SHELL STATE ---
 static char cmd_buffer[128];
 static uint32_t cmd_pos = 0;
@@ -581,21 +584,29 @@ static inline bool gpio_read_fast(uint8_t pin) {
     return digitalRead(pin) == LOW;
 }
 
-// --- MultiPrint Class ---
+// --- MultiPrint Class (FIXED FOR THREAD SAFETY) ---
 class MultiPrint : public Print {
 public:
     virtual size_t write(uint8_t c) {
+        mutex_enter_blocking(&kout_mutex);
         Serial.write(c);
         if (kernel.app_write_char) {
             kernel.app_write_char(c);
         }
+        mutex_exit(&kout_mutex);
         return 1;
     }
 
     virtual size_t write(const uint8_t *buffer, size_t size) {
-        for(size_t i = 0; i < size; i++) {
-            write(buffer[i]);
+        mutex_enter_blocking(&kout_mutex);
+        // Use the underlying Serial.write for block transfers
+        Serial.write(buffer, size); 
+        if (kernel.app_write_char) {
+            for(size_t i = 0; i < size; i++) {
+                kernel.app_write_char(buffer[i]);
+            }
         }
+        mutex_exit(&kout_mutex);
         return size;
     }
 };
@@ -1552,7 +1563,11 @@ void cmd_kill(char* arg) {
 
 void setup() {
     Serial.begin(115200);
-    delay(2000);
+    delay(2000); // Wait for serial
+    
+    // --- KERNEL BOOTSTRAP ---
+    // FIX: Init kout mutex FIRST before any other threads or print calls
+    mutex_init(&kout_mutex);
     
     Serial.println("APP_REG: Registration phase complete.");
     
@@ -1594,7 +1609,7 @@ void setup() {
     core1_scheduler_init();
     multicore_launch_core1(core1_main);
     kernel.core1_initialized = true;
-    kout.println("[OK] Core1 started");
+    kout.println("[OK] Core1 started"); // This should now print cleanly
     
     vfs_init();
     fs_init();
