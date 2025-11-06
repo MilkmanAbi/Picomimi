@@ -136,3 +136,14 @@ Contributions are welcome! Feel free to fork, modify, and build upon Picomimi. I
 ## Support
 
 For issues, questions, or discussions, please use the GitHub Issues page or check the repository for updates and community contributions.
+
+## AI Usage Disclosure
+AI Assistance & Development Philosophy
+
+This project made extensive use of AI to accelerate development, streamline restructuring, and translate code into clean, readable, and maintainable components. While AI played a significant role in improving turnaround times and integration efficiency, the foundation of this project remains deeply rooted in conceptual and philosophical development.
+
+A considerable—and often painstaking—amount of time was spent developing and refining the core ideas behind the system, drawing inspiration from classic UNIX philosophies such as simplicity, modularity, and clarity of purpose. AI tools were leveraged not as a replacement for thought, but as an extension of it—used to rapidly prototype, debug, iterate, and integrate complex features into the evolving framework.
+
+Earlier versions of the project (Picomimi v0.2 through v3.1.2) were developed entirely without AI assistance, back when the project’s scope was smaller and turnaround times were less of a personal concern and time was a non issue. This project began as a hobbyist project, one to make myself something to learn and grow with, purely for entertainment and to statiate curiousity.
+
+The result is a system built on both human insight and computational precision: a fusion of deliberate design and intelligent automation that emphasizes robustness, maintainability, and conceptual integrity.
