@@ -119,6 +119,7 @@ Open **Tools → Board → Boards Manager**, search for Raspberry Pi RP2040, and
 * **Architecturally viable and stable**
 * Core kernel is stable, marking the successful end of the project's primary engineering goal with Milestone v10 M2, next expected milestone is v15 M2.
 * Future work (V10 M2+) will focus on refining the developer experience, feature enablement, retaining API compatibility with v10 M2, and simplifying application integration.
+* Picomimi v10 M2 is a milestone, thus development on Picomimi has slowed down. Future versions will be made to support v10 M2 APIs and functions as closely as possible while adding features and improving core concepts, cross compatibility is now a focus until new milestone for large ideaology shifts, v15 M2 is reached.
 
 ---
 
