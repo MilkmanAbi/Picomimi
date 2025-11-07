@@ -147,3 +147,7 @@ A considerable—and often painstaking—amount of time was spent developing and
 Earlier versions of the project (Picomimi v0.2 through v3.1.2) were developed entirely without AI assistance, back when the project’s scope was smaller and turnaround times were less of a personal concern and time was a non issue. This project began as a hobbyist project, one to make myself something to learn and grow with, purely for entertainment and to statiate curiousity.
 
 The result is a system built on both human insight and computational precision: a fusion of deliberate design and intelligent automation that emphasizes robustness, maintainability, and conceptual integrity.
+
+## Miscellaneous
+
+Just to clarify — I know professional solutions like FreeRTOS and Zephyr already exist. This project is definitely more crude, barely worth anything, in comparison, but I made it for the sheer customizability and hackability it offers. For example, I’m currently working on Picomimi v12, which will run across four interconnected RP2040s in parallel for massive PIO capabilities and octa-core processing — purely for fun :)
