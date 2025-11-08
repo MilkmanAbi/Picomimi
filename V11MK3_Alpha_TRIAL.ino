@@ -1,3 +1,18 @@
+//Temporarily remove VFS code, might remove VFS permanently, depends of usage case trial.
+//Holy Shit, fixed a lot of issues coding at 4am compared to v11MK2, I really don't even remember that shit, holy heck.
+//Logging overwrite issues may be present, I'm too damn tired.
+
+// Current (and likely broken) MK3 code:
+//File logFile = SD.open(FS_LOG_FILE, FILE_WRITE); 
+// Corrected code:
+//File logFile = SD.open(FS_LOG_FILE, FILE_APPEND); 
+// Remove the line logFile.seek(logFile.size()); as it is now redundant.
+// I dunno bro tired af.
+
+// Dunno if I wanna keep VFS. I mean it allows for super fast data storage, potentially easier DMA, removes need for slow SD on hyper low resource systems, but idk,
+//lot of maintenance needed, and gahhhh, it's so many lines itself alone, rapid comparing my projects with AI and evaluating get's hard with 5.2k lines and over. Is
+//VFS really worth it?
+
 #include <SPI.h>
 #include <SD.h>
 #include <hardware/adc.h>
