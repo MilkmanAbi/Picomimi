@@ -157,4 +157,13 @@ The result is a system built on both human insight and computational precision: 
 
 * The "hackable" philosophy is what drives this project. Current mini project: Picomimi v12-v13 M2, which will run across four interconnected RP2040s in parallel for massive PIO capabilities and octa-core processing.
 
-```
+___
+
+## Milestone lists
+
+* v6
+* v8.4
+* v9.6.1
+* v10 M1
+* v10 M2 (First large milestone reached)
+* v11 MK2 (Second large milestone reached)
