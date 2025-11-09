@@ -1914,7 +1914,7 @@ void setup() {
     randomSeed(micros());
 
     kout.println("========================================");
-    kout.println(" Picomimi Kernel v11 MK2");
+    kout.println(" Picomimi Kernel v11 MK4");
     kout.println(" (RTOS Feature Release)");
     kout.println("========================================");
     kout.println("Initializing...");
