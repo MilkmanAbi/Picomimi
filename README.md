@@ -2,7 +2,7 @@
 
 **A tiny, hackable, and ultra-customisable MicroOS for the RP2040**
 
-Picomimi turns the RP2040 into a miniature, interactable Micro Computer device. It's an Arduino-IDE-ready microkernel built for one purpose: sheer hackability. This is a system you can tear apart, customize, and rebuild to your exact specifications.
+Picomimi turns the RP2040 into a miniature, interactable Micro Computer device. It's an Arduino-IDE-ready microkernel built for one purpose: sheer hackability. This is a system you can tear apart, customise, and rebuild to your exact specifications.
 
 ![Picomimi mascot](assets/Picomimi_Mascot.png)  
 *Picomimi ready for hacking!*
@@ -13,7 +13,7 @@ Picomimi turns the RP2040 into a miniature, interactable Micro Computer device. 
 
 Let's be clear: professional solutions like FreeRTOS and Zephyr are miles ahead in features and polish. Picomimi isn't trying to compete with them, nor will it ever be able to with its foundation nor its philosophy.
 
-Instead, its usability lays in its accessibility. It's a MicroOS that exposes its internals—from the O(1) scheduler to the graceful OOM killer—through an interactive shell and APIs. Where others provide a finished product, Picomimi provides a box of high-performance parts and invites you to build something your own.
+Instead, its usability lies in its accessibility. It's a MicroOS that exposes its internals—from the O(1) scheduler to the graceful OOM killer—through an interactive shell and APIs. Where others provide a finished product, Picomimi provides a box of high-performance parts and invites you to build something of your own.
 
 It's a service-oriented platform that gives you the tools to build complex systems on a stable foundation.
 
@@ -24,7 +24,7 @@ It's a service-oriented platform that gives you the tools to build complex syste
 Picomimi's core kernel is designed for simplicity and stability, making it a viable base for complex projects:
 
 ### Minimalist Dual-Core
-- Fully utilizes the RP2040's two cores with high-performance Inter-Core Communication (IPC).  
+- Fully utilises the RP2040's two cores with high-performance Inter-Core Communication (IPC).  
 - The kernel is lean; all non-essential hardware (like displays or complex buttons) is handled by separate application tasks.
 
 ### O(1) Bitmap Scheduler
@@ -117,9 +117,9 @@ Open **Tools → Board → Boards Manager**, search for Raspberry Pi RP2040, and
 ## Current Status
 
 * **Architecturally viable and stable**
-* Core kernel is stable, marking the successful end of the project's primary engineering goal with Milestone v10 M2, next expected milestone is v15 M2.
+* Core kernel is stable, marking the successful end of the project's primary engineering goal with Milestone v10 M2; next expected milestone is v15 M2.
 * Future work (V10 M2+) will focus on refining the developer experience, feature enablement, retaining API compatibility with v10 M2, and simplifying application integration.
-* Picomimi v10 M2 is a milestone, thus development on Picomimi has slowed down. Future versions will be made to support v10 M2 APIs and functions as closely as possible while adding features and improving core concepts, cross compatibility is now a focus until new milestone for large ideaology shifts, v15 M2 is reached.
+* Picomimi v10 M2 is a milestone; thus, development on Picomimi has slowed down. Future versions will be made to support v10 M2 APIs and functions as closely as possible while adding features and improving core concepts, cross compatibility is now a focus until a new milestone for large ideology shifts, v15 M2 is reached.
 
 ---
 
@@ -147,9 +147,11 @@ This project made extensive use of AI to accelerate development, streamline rest
 
 A considerable—and often painstaking—amount of time was spent developing and refining the core ideas behind the system, drawing inspiration from classic UNIX philosophies such as simplicity, modularity, and clarity of purpose. AI tools were leveraged not as a replacement for thought, but as an extension of it—used to rapidly prototype, debug, iterate, and integrate complex features into the evolving framework.
 
-Earlier versions of the project (Picomimi v0.2 through v3.1.2) were developed entirely without AI assistance, back when the project’s scope was smaller and turnaround times were less of a personal concern and time was a non issue. This project began as a hobbyist project, one to make myself something to learn and grow with, purely for entertainment and to statiate curiousity.
+Earlier versions of the project (Picomimi v0.2 through v3.1.2) were developed entirely without AI assistance, back when the project’s scope was smaller and turnaround times were less of a personal concern, and time was a non-issue. This project began as a hobbyist project, one to make myself something to learn and grow with, purely for entertainment and to satiate curiosity.
 
-The result is a system built on both human insight and computational precision: a fusion of deliberate design and intelligent automation that emphasizes robustness, maintainability, and conceptual integrity.
+The result is a system built on both human insight and computational precision: a fusion of deliberate design and intelligent automation that emphasises robustness, maintainability, and conceptual integrity.
+
+I used AI extensively to learn coding concepts, debug my own issues, and figure out practical ways to implement ideas. This has been an incredible learning opportunity. AI has helped me learn complex concepts, use them appropriately and even advised me on structuring and managing complexity. AI has helped me fix countless problems, including when I had to change god knows how many parts of my code or merge huge, fragmented segments scattered across many, many scattered files into one. Conceptually and implementation-wise, a lot of effort went into this project. During development, the code was always crude and messy; it was cleaned up by AI right before publication on GitHub.
 
 ---
 
@@ -161,9 +163,9 @@ ___
 
 ## Milestone lists
 
-* v6
-* v8.4
-* v9.6.1
-* v10 M1
+* v6 (Minor)
+* v8.4 (Minor)
+* v9.6.1 (Minor)
+* v10 M1 (Intermediary step)
 * v10 M2 (First large milestone reached)
 * v11 MK2 (Second large milestone reached)
