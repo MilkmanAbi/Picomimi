@@ -1,5 +1,5 @@
 /*
- * Kernel-Stress-Tester.ino
+ * Kernel-Stress-Tester.ino (FIXED)
  * * This application is designed to stress the Picomimi v11 kernel's
  * most sensitive components: the Memory Manager (kmalloc/kfree) and 
  * the Preemptive Scheduler.
@@ -10,8 +10,7 @@
  */
 
 // We assume the necessary Picomimi RTOS APIs are available globally
-// (e.g., kout, klog, kmalloc, kfree, task_get_info, task_exit).
-// This structure holds the state for our stress test task.
+// (e.g., kout, klog, kmalloc, kfree, task_create, k_task_exit_api, task_sleep).
 
 // --- CONFIGURATION ---
 // Set max_allocations low so we force a termination event faster
@@ -25,20 +24,26 @@ typedef struct {
     int frag_count;
     uint32_t current_loop;
     uint32_t total_cycles;
+    uint32_t task_id; // Store our own task ID
 } StressTaskState_t;
 
+// This state is global for this "application" file
 StressTaskState_t stress_state;
-
+char klog_buf[128]; // Buffer for formatting klog messages
 
 // --- 1. MEMORY FRAGMENTATION AND LEAK TEST ---
 
 void fragment_memory_heap() {
     // Attempt to allocate memory blocks of random sizes
     uint16_t size = (micros() % MAX_MEM_SIZE) + 1;
-    void* ptr = kmalloc(size, MALLOC_TASK_HEAP); 
+    
+    // FIX: Call kmalloc with the task's own ID, not MALLOC_TASK_HEAP
+    void* ptr = kmalloc(size, stress_state.task_id); 
 
     if (ptr == NULL) {
-        klog.error("OOM Test: kmalloc failed to allocate %d bytes. Kernel is stressed.", size);
+        // FIX: Use klog() function with a formatted buffer
+        snprintf(klog_buf, sizeof(klog_buf), "OOM Test: kmalloc failed to allocate %d bytes. Kernel is stressed.", size);
+        klog(3, klog_buf); // Use level 3 for error
         return;
     }
     
@@ -61,7 +66,9 @@ void fragment_memory_heap() {
 
     // Log the current status every 10 cycles
     if (stress_state.current_loop % 10 == 0) {
-        klog.info("Stress: Loop %d. Holding %d fragments.", stress_state.current_loop, stress_state.frag_count);
+        // FIX: Use klog() function with a formatted buffer
+        snprintf(klog_buf, sizeof(klog_buf), "Stress: Loop %d. Holding %d fragments.", stress_state.current_loop, stress_state.frag_count);
+        klog(0, klog_buf); // Use level 0 for info
     }
 }
 
@@ -93,11 +100,15 @@ void busy_wait_calculate() {
 // --- THE MAIN APPLICATION TASK ---
 
 void stress_test_app(void* arg) {
+    // The spawner function passes the task's ID as the argument
+    uint32_t self_task_id = (uint32_t)(uintptr_t)arg;
+
     kout.println("Starting Kernel Stress Tester App...");
     
     // Initialize state
     memset(&stress_state, 0, sizeof(StressTaskState_t));
     strcpy(stress_state.name, "CPU/MEM_HOG");
+    stress_state.task_id = self_task_id; // Store our ID
 
     while (1) {
         // Step 1: Fragment the heap and push the memory manager
@@ -120,5 +131,38 @@ void stress_test_app(void* arg) {
 
     // Clean up if we somehow exit gracefully (unlikely)
     kout.println("Stress Test App Exited Gracefully.");
-    task_exit();
+    
+    // FIX: Use the correct kernel API function to exit
+    k_task_exit_api();
+}
+
+// --- MISSING SPAWNER FUNCTION ---
+// FIX: Added the spawner function that 'setup()' in the main file calls.
+
+void spawn_stress_app() {
+    kout.println("[APP] Spawning Stress Tester...");
+    uint32_t task_id = task_create(
+        "stress_app",           // const char* name
+        stress_test_app,        // void (*entry)(void*)
+        NULL,                   // void* arg (will be set after creation)
+        10,                     // uint8_t priority
+        TASK_TYPE_APPLICATION,  // uint8_t task_type
+        TASK_FLAG_ONESHOT,      // uint32_t flags
+        0,                      // uint64_t max_runtime_ms (0=unlimited)
+        OOM_PRIORITY_LOW,       // uint8_t oom_priority
+        50 * 1024,              // uint32_t mem_limit (50KB)
+        NULL,                   // ModuleCallbacks* callbacks
+        "Stresses CPU and MEM", // const char* description
+        CORE_ANY                // CoreAffinity affinity
+    );
+
+    if (task_id > 0 && task_id < MAX_TASKS) {
+        // Now that the task is created, we set its 'arg' to its own ID.
+        // This is a common pattern for tasks to identify themselves.
+        kernel.tasks[task_id].arg = (void*)(uintptr_t)task_id;
+        kout.print("[APP] Stress app alive with ID: ");
+        kout.println(task_id);
+    } else {
+        kout.println("[APP] Failed to spawn stress app!");
+    }
 }
