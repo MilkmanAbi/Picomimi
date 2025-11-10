@@ -1,3 +1,0 @@
-Application_Register("stress", spawn_stress_app);
-
-add under void setup just before the Serial.println("APP_REG: Registration phase complete.");
