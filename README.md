@@ -1,3 +1,5 @@
+## Temporary Warning!! v11MK4 is severly broken, unviable and severly unstable, the OOM killer, Application Misbehavior Management (AMM) and kmalloc all need fixes to be viable and stable. v11MK4 is a severe failure, v11MK7 is expected to be viable, and stable enough for app dev.
+
 # Picomimi
 
 **A tiny, hackable, and ultra-customisable MicroOS for the RP2040**
