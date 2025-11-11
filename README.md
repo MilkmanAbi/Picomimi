@@ -1,4 +1,39 @@
-## Temporary Warning!! v11MK4 is severly broken, unviable and severly unstable, the OOM killer, Application Misbehavior Management (AMM) and kmalloc all need fixes to be viable and stable. v11MK4 is a severe failure, v11MK7 is expected to be viable, and stable enough for app dev.
+# ⚠️ Critical Warning: v11MK4 & v11MK7 Failures, Being Remade
+
+**Notice:** Both **v11MK4**, and it's feature fix successor, **v11MK7** were intended as major milestone releases, but after extensive testing, they have proven **highly unstable and unviable**. Core systems — including the OOM Killer, Application Misbehaviour Management (AMM), and `kmalloc` — contain severe issues. Both releases are **abandoned**.
+
+---
+
+## Tragic Milestone
+
+v11MK4 was meant to be a landmark release, but instead it became a **critical failure**. v11MK7, which built upon v11MK4, is also problematic. This marks a **major setback** for the project, but all setbacks are being leveraged as learning points to reimplement critically underdeveloped code.
+
+---
+
+## Recovery & Next Steps
+
+All resources and active developers —
+
+* **MilkmanAbi (GitHub)**
+* **KKDevBoi (Unlisted)**
+
+— are fully committed to **merging the stable base of v10 M2** with whatever can be salvaged from v11MK4 and v11MK7, at least within 3 weeks of Nov 11, when the call for scrapping Milestone v11MK4 was made.
+
+The result will be a **true v11 milestone release**, named:
+
+**v11 A1 (Arche 1)**
+
+This release will be stable, viable for app development, and free of the systemic issues that broke previous attempts.
+
+---
+
+## Recommendations
+
+* **Do not use** v11MK4 or v11MK7.
+* Focus on **v11 A1** or later releases built on **v10 M2**.
+* All plans for v12 based on these broken releases are **scrapped**.
+
+---
 
 # Picomimi
 
@@ -159,7 +194,7 @@ I used AI extensively to learn coding concepts, debug my own issues, and figure 
 
 ## Miscellaneous
 
-* The "hackable" philosophy is what drives this project. Current mini project: Picomimi v12-v13 M2, which will run across four interconnected RP2040s in parallel for massive PIO capabilities and octa-core processing.
+* The "hackable" philosophy is what drives this project. Current mini project: Picomimi v12-v13 M2, which will run across four interconnected RP2040s in parallel Second large milestone reachedfor massive PIO capabilities and octa-core processing.
 
 ___
 
@@ -170,4 +205,4 @@ ___
 * v9.6.1 (Minor)
 * v10 M1 (Intermediary step)
 * v10 M2 (First large milestone reached)
-* v11 MK2 (Second large milestone reached)
+* v11 MK2 (Second Largest Milestone - Scrapped, Failure.)
