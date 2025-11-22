@@ -155,17 +155,12 @@ I used AI extensively to learn coding concepts, debug my own issues, and figure 
 
 ---
 
-## Miscellaneous
+## Why This project Stays Single-File (At least for the foreseeable future...)
 
-* The "hackable" philosophy is what drives this project. Current mini project: Picomimi v12-v13 M2, which will run across four interconnected RP2040s in parallel Second large milestone reachedfor massive PIO capabilities and octa-core processing.
+Arduino IDE technically supports multiple `.ino` files, but in practice it’s a headache. Behind the scenes, the IDE concatenates all `.ino` files into a single `.cpp` before compiling, and the order is **alphabetical after the main file**. That means structs, typedefs, and globals are only visible to files that come later alphabetically. Splitting the kernel into multiple `.ino` files would force us to rename things like `a_types.ino`, `b_memory.ino`, `c_scheduler.ino` just to control compilation order — and any small change could silently break another file. Compiler errors reference the merged `.cpp`, not the original tab, making debugging slow and frustrating. With everything in one file, errors point exactly where they belong, Ctrl+F works, and bracket counting doesn’t turn into a scavenger hunt. If this were a Pico SDK + CMake project with proper includes and build tools, splitting into multiple files would make sense — but migrating a kernel like this isn’t realistic for a two-person team juggling school, other projects, limited screen space, and, occasionally, the need to just chill with plants or scroll through memes.
 
-___
+---
 
-## Milestone lists
+## Why We're Not Changing It (Not soon at least...)
 
-* v6 (Minor)
-* v8.4 (Minor)
-* v9.6.1 (Minor)
-* v10 M1 (Intermediary step)
-* v10 M2 (First large milestone reached)
-* v11 MK2 (Second Largest Milestone - Scrapped, Failure.)
+This is a **hobby passion project**, not production software. We’re two people working on small monitors, trying to actually get something running without turning every minor tweak into a multi-day headache. Suggestions to modularize the kernel are well meaning, but gloss over how fragile Arduino’s multi-file `.ino` system is: splitting it would create real technical debt, slow down development, and make debugging tedious. **Our architecture keeps the kernel as one clean file, while apps are uploaded as separate `.ino` files** — this keeps the workspace manageable and avoids alphabetical dependency issues. The kernel is well-commented, structured with clear ASCII section headers (at least we’re working on clean ASCII headers…), and every function is a readable `void` with straightforward logic. Single-file isn’t a “shortcut” — it’s a **practical, maintainable choice** that lets us iterate quickly, preserve sanity, and still make a functional mini RP2040 kernel — all while leaving time to chill with plants or watch a few memes.
