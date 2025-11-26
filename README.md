@@ -1,166 +1,184 @@
-# Picomimi
+# **Picomimi MicroOS**
 
-**A tiny, hackable, and ultra-customisable MicroOS for the RP2040**
+Picomimi is a microOS for RP2040 and RP2350 microcontrollers.  
+It is designed to be **hackable, learnable, and practical**: a minimal unified dual-core microkernel with task scheduling, inter-process communication (IPC), memory management, system calls, and an interactive shell — everything needed for a small but functional operating system.
 
-Picomimi turns the RP2040 into a miniature, interactable Micro Computer device. It's an Arduino-IDE-ready microkernel built for one purpose: sheer hackability. This is a system you can tear apart, customise, and rebuild to your exact specifications.
+The kernel is **fully open and editable**. You can modify scheduler behavior, tweak IPC, adjust memory policies, or focus entirely on building applications with exposed APIs. Picomimi provides **maximum control and learning potential** while remaining **fast, readable, and buildable using only Arduino IDE** — no CMake, no complex toolchains, no opaque scripts.
 
+---
 ![Picomimi mascot](assets/Picomimi_Mascot.png)  
 *Picomimi ready for hacking!*
+___
+
+## **Project Philosophy**
+
+Picomimi is built around **transparency and hackability**:
+
+* **Kernel is yours:** tweak or rewrite the scheduler, memory manager, IPC system, or system calls freely.  
+* **Applications first:** easily build and run tasks without boilerplate.  
+* **Learning through experimentation:** inspect kernel state, extend services, and adjust behavior as needed.  
+* **Minimal but capable:** small enough to fully understand, but powerful enough to serve as a real development platform.  
+* **Simple toolchain:** Arduino IDE only, with direct upload and fast compilation.  
+
+Picomimi is a **development platform as much as it is a microOS**, designed to let you focus on experimentation, embedded application development, and learning by hacking.
 
 ---
 
-## A Note on expectations and Polish...
+## **Project Goals**
 
-Let's be clear: professional solutions like FreeRTOS and Zephyr are miles ahead in features and polish. Picomimi isn't trying to compete with them, nor will it ever be able to with its foundation nor its philosophy.
-
-Instead, its usability lies in its accessibility. It's a MicroOS that exposes its internals—from the O(1) scheduler to the graceful OOM killer—through an interactive shell and APIs. Where others provide a finished product, Picomimi provides a box of high-performance parts and invites you to build something of your own.
-
-It's a service-oriented platform that gives you the tools to build complex systems on a stable foundation.
-
----
-
-## Key Architectural Features (V10 M2 Microkernel)
-
-Picomimi's core kernel is designed for simplicity and stability, making it a viable base for complex projects:
-
-### Minimalist Dual-Core
-- Fully utilises the RP2040's two cores with high-performance Inter-Core Communication (IPC).  
-- The kernel is lean; all non-essential hardware (like displays or complex buttons) is handled by separate application tasks.
-
-### O(1) Bitmap Scheduler
-- Supports true concurrent multitasking with a guaranteed low-latency task selection.  
-- This is a high-performance scheduling concept common in RTOS environments, replicated to a certain extent, fully exposed for you to use.
-
-### Memory Management
-- Features custom kernel memory allocation (`kmalloc` and `kfree`) with task-specific accounting and a Graceful Out-of-Memory (OOM) Killer.  
-- This system prevents crashes by recovering memory before system failure.
-
-### Essential Persistent Storage
-- The kernel treats the SD card as a fundamental resource for file system services and application data.  
-- (Picomimi will function without an SD on a bare RP2040, but the addition of one is heavily encouraged to give you access to logging features.)
-
-### Service Isolation
-- The kernel ensures stability, while your applications handle the complex interactions.  
-- This is a platform for Software Enablement, where you define the hardware and services.
-
-### Kernel Panic Handler
-- Built-in system protection to catch critical failures and provide diagnostic information, ensuring maximum uptime.
+1. Provide a minimal but functional microOS for RP2040/RP2350.  
+2. Expose kernel internals for learning and modification.  
+3. Enable multitasking across dual cores with priority-aware scheduling.  
+4. Simplify development with a zero-configuration Arduino IDE workflow.  
+5. Enable full hackability: kernel, IPC, scheduler, and system calls are open for modification.  
+6. Serve as a foundation for embedded applications, letting developers focus on application logic instead of boilerplate.
 
 ---
 
-## Interactive Shell & Task Management
+## **Architecture Overview**
 
-### Interactive Shell
-This is your window into the kernel. Connect via serial using:
+Picomimi is a **unified dual-core microkernel**:
+
+* **O(1) priority scheduler** across both cores.  
+* **Priority-aware IPC** for deterministic communication between tasks.  
+* **Per-task memory accounting** with Out-of-Memory (OOM) handling.  
+* **Root/privileged mode** for critical kernel operations.  
+* **Optional SD card support** for persistent storage and logging.  
+* **Interactive serial shell** for monitoring and control.  
+
+GUI, display handling, timers, and peripheral management run as user-space tasks, keeping the kernel **lean, readable, and fully editable**.
+
+---
+
+## **Version Overview**
+
+### **v10 Manifest v2 (v10 M2)** — Stable / Foundational
+
+* First major milestone. Fully hackable.  
+* Dual-core O(1) scheduler.  
+* Priority-aware IPC.  
+* Root mode for privileged operations.  
+* Graceful OOM Killer with optional callbacks.  
+* Kernel Panic Handler.  
+* No memory protection; fully open and multipurpose.  
+
+### **v11 Manifest v4 (v11 M4)** — RTOS Primitives Feature Release
+
+* Adds mutexes, semaphores, events.  
+* Implements priority inheritance for deterministic scheduling.  
+* GUI focus management.  
+* Privilege separation via Root Mode.  
+
+### **v11 Artemis 1 (v11 A1)** — Experimental / Unsupported
+
+* Aggressive memory enforcement: tasks exceeding limits are killed or blocked.  
+* Aggressive OOM Killer targeting high-velocity allocators.  
+* API inconsistent and unstable.  
+* Research-only, high-risk experimental features.  
+
+### **v12 MACH 1 (v12 MACH1)** — Experimental Alpha
+
+* App Check Environment (ACE) pre-execution sandbox.  
+* Memory and CPU abuse detection.  
+* Throttling mechanisms instead of termination-only OOM.  
+* Quality-of-Service (QoS) oriented stability.  
+* Pivot toward a self-protective, hyper-stable kernel.  
+
+---
+
+## **Task and Memory Model**
+
+* **Tasks:** create, suspend, resume, terminate via shell or API.  
+* **Memory:** `kmalloc` / `kfree` with per-task accounting.  
+* **OOM Handling:** graceful recovery (or aggressive termination in experimental versions).  
+* **IPC:** message passing with optional priority handling.  
+
+All kernel features are **fully exposed for inspection and modification**.
+
+---
+
+## **Shell and Interaction**
+
+Connect via USB serial:
+
+**Linux:**
 
 ```bash
-# Linux
 picocom /dev/ttyACM0 -b 115200
-
-# Windows
-ttermpro.exe /C=x /BAUD=115200
-
-# macOS
-screen /dev/tty.usbmodemxxxxx 115200
 ````
 
-Use the shell to inspect tasks (`ps`, `taskinfo`), check memory (`mem`, `memmap`), and view kernel-level stats (`schedstat`, `ipcstat`, `oomstat`) in real time.
+**macOS:**
 
-### Task Lifecycle Control
+```bash
+screen /dev/tty.usbmodem* 115200
+```
 
-* Create, suspend, resume, and terminate tasks interactively.
-* This is OS-style task management on tiny hardware, fully at your command.
+**Windows:** Arduino Serial Monitor
 
----
+Shell commands allow:
 
-## Dependencies
+* Task inspection (`ps`, `taskinfo`)
+* Memory inspection (`mem`, `memmap`)
+* Scheduler and IPC stats (`schedstat`, `ipcstat`)
+* OOM and kernel statistics (`oomstat`)
 
-### RP2040 / Raspberry Pi Pico Board Support
-
-Add this URL to Arduino IDE under **File → Preferences → Additional Boards Manager URLs**:
-
-[https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json](https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json)
-
-Open **Tools → Board → Boards Manager**, search for Raspberry Pi RP2040, and install the package.
+Users can launch tasks, inspect kernel state, and debug applications interactively.
 
 ---
 
-## Recommended Setup
+## **Hardware Support**
 
-* **Overclocking:** For smoother performance, overclock your RP2040 to 225 MHz, 240 MHz, 250 MHz, or 276 MHz. Best kept to 225MHz for stability across most boards.
-* **Arduino IDE Optimization:** Set "Optimize Even More (-O3)" under the optimization settings.
-* **Serial Terminal:** Use picocom or another serial terminal at 115200 baud to interact with the Picomimi shell.
-
----
-
-## Getting Started
-
-1. Install Arduino IDE and the RP2040 board support package.
-2. Clone or download the Picomimi repository.
-3. Open the main `Picomimi.ino` file in Arduino IDE.
-4. Go to **Sketch → Add File...** and add any application sketch from the `app` folder.
-5. Make sure the dependencies listed above are installed.
-6. Upload the sketch to your RP2040.
-7. Open a serial terminal and start hacking the Picomimi shell.
+* RP2040 and RP2350 boards.
+* Optional SD card for logging and filesystem. Services that depend on the SD card (e.g., file logging) will **remain inactive if no SD card is present**, and the system will notify the user that the functionality is unavailable.
+* Missing peripherals **do not affect kernel stability**; only features depending on them are inactive.
 
 ---
 
-## Hardware Compatibility
+## **Building**
 
-* Picomimi is designed to be stable, efficient, and hackable.
-* Encourages experimentation with dual-cores, advanced memory management, and hardware peripherals.
-* Compatible with nearly all RP2040 boards. Missing hardware won't break the system—the kernel will simply ignore unconnected components.
-* SD Card is heavily encouraged, although not mandated for functionality.
+1. Install Arduino IDE.
+2. Add RP2040 board support:
 
----
+```
+https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+```
 
-## Current Status
+3. Open `Picomimi.ino` in Arduino IDE.
+4. Add applications from the `app` folder if needed.
+5. Compile and upload.
 
-* **Architecturally viable and stable**
-* Core kernel is stable, marking the successful end of the project's primary engineering goal with Milestone v10 M2; next expected milestone is v15 M2.
-* Future work (V10 M2+) will focus on refining the developer experience, feature enablement, retaining API compatibility with v10 M2, and simplifying application integration.
-* Picomimi v10 M2 is a milestone; thus, development on Picomimi has slowed down. Future versions will be made to support v10 M2 APIs and functions as closely as possible while adding features and improving core concepts, cross compatibility is now a focus until a new milestone for large ideology shifts, v15 M2 is reached.
-
----
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
+**No CMake, no external dependencies — sheer Arduino IDE simplicity.**
 
 ---
 
-## Contributing
+## **Customisation**
 
-Contributions are welcome! Feel free to fork, modify, and build upon Picomimi. If you use it in your projects or create something cool with it, a gentle credit back to the original project would be appreciated (but not required). Share the love! ♡
----
+* Kernel, scheduler, IPC, OOM, memory policies, and Root Mode are fully editable.
+* Applications can be developed independently using exposed APIs.
+* The system is intended to be modified, extended, and experimented on without restriction.
 
-## Support
-
-* For issues, questions, or discussions, please use the GitHub Issues page or check the repository for updates and community contributions.
-
----
-
-## AI Usage Disclosure
-AI Assistance & Development Philosophy
-
-This project made extensive use of AI to accelerate development, streamline restructuring, and translate code into clean, readable, and maintainable components. While AI played a significant role in improving turnaround times and integration efficiency, the foundation of this project remains deeply rooted in conceptual and philosophical development.
-
-A considerable—and often painstaking—amount of time was spent developing and refining the core ideas behind the system, drawing inspiration from classic UNIX philosophies such as simplicity, modularity, and clarity of purpose. AI tools were leveraged not as a replacement for thought, but as an extension of it—used to rapidly prototype, debug, iterate, and integrate complex features into the evolving framework.
-
-Earlier versions of the project (Picomimi v0.2 through v3.1.2) were developed entirely without AI assistance, back when the project’s scope was smaller and turnaround times were less of a personal concern, and time was a non-issue. This project began as a hobbyist project, one to make myself something to learn and grow with, purely for entertainment and to satiate curiosity.
-
-The result is a system built on both human insight and computational precision: a fusion of deliberate design and intelligent automation that emphasises robustness, maintainability, and conceptual integrity.
-
-I used AI extensively to learn coding concepts, debug my own issues, and figure out practical ways to implement ideas. This has been an incredible learning opportunity. AI has helped me learn complex concepts, use them appropriately and even advised me on structuring and managing complexity. AI has helped me fix countless problems, including when I had to change god knows how many parts of my code or merge huge, fragmented segments scattered across many, many scattered files into one. Conceptually and implementation-wise, a lot of effort went into this project. During development, the code was always crude and messy; it was cleaned up by AI right before publication on GitHub.
+Picomimi is **both a microOS and a development platform**, letting you remove boilerplate, focus on applications, and hack the kernel itself.
 
 ---
 
-## Why This project Stays Single-File (At least for the foreseeable future...)
+## **Intended Use Cases**
 
-Arduino IDE technically supports multiple `.ino` files, but in practice it’s a headache. Behind the scenes, the IDE concatenates all `.ino` files into a single `.cpp` before compiling, and the order is **alphabetical after the main file**. That means structs, typedefs, and globals are only visible to files that come later alphabetically. Splitting the kernel into multiple `.ino` files would force us to rename things like `a_types.ino`, `b_memory.ino`, `c_scheduler.ino` just to control compilation order — and any small change could silently break another file. Compiler errors reference the merged `.cpp`, not the original tab, making debugging slow and frustrating. With everything in one file, errors point exactly where they belong, Ctrl+F works, and bracket counting doesn’t turn into a scavenger hunt. If this were a Pico SDK + CMake project with proper includes and build tools, splitting into multiple files would make sense — but migrating a kernel like this isn’t realistic for a two-person team juggling school, other projects, limited screen space, and, occasionally, the need to just chill with plants or scroll through memes.
+* Learning microkernel design.
+* Building custom embedded devices.
+* Prototyping multi-task microcontroller systems.
+* Experimental research on stability and memory policies.
+* Hackable, rapid application development on RP2040/RP2350 embedded devices.
 
 ---
 
-## Why We're Not Changing It (Not soon at least...)
+## **Development and Philosophy**
 
-This is a **hobby passion project**, not production software. We’re two people working on small monitors, trying to actually get something running without turning every minor tweak into a multi-day headache. Suggestions to modularize the kernel are well meaning, but gloss over how fragile Arduino’s multi-file `.ino` system is: splitting it would create real technical debt, slow down development, and make debugging tedious. **Our architecture keeps the kernel as one clean file, while apps are uploaded as separate `.ino` files** — this keeps the workspace manageable and avoids alphabetical dependency issues. The kernel is well-commented, structured with clear ASCII section headers (at least we’re working on clean ASCII headers…), and every function is a readable `void` with straightforward logic. Single-file isn’t a “shortcut” — it’s a **practical, maintainable choice** that lets us iterate quickly, preserve sanity, and still make a functional mini RP2040 kernel — all while leaving time to chill with plants or watch a few memes.
+Picomimi is a product of iterative, practical development. It was designed for **clarity, accessibility, and hackability**, not for production-grade security or compliance. Its kernel is intentionally open, letting you explore, extend, or rewrite internal mechanisms. The system encourages **learning through experimentation**, giving developers tools to handle multitasking, IPC, and memory without unnecessary complexity.
+
+The project was initially developed entirely by hand, but AI tools were later used to **refactor, streamline, and clean code** for readability and maintainability. AI acted as a **development assistant**, not a replacement for design thought. Picomimi’s philosophy remains rooted in **modularity, simplicity, and experimentation**.
+
+---
+
+## **License**
+
+MIT License. See `LICENSE` file.
