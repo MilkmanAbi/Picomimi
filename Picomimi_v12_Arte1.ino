@@ -1,4 +1,9 @@
-// v12 Mach 1 Picomimi, v12 Alpha release, first sub-release, v12 M1.
+// v12 Arte 1, built on v12 MACH 1
+// Hardening the fucking kmalloc() and kfree() because they were SHIT, still shit, just less shit.'
+// ACE will be kept, slightly cleaned up, very shit.
+// Nothing much really, just stabilising v12 to not crash every 30 minutes, weirdly. 
+// Stayed on for over 30 hours, no issues doing simple math, Arte 1.
+// I dunno, get this stable enough to be the fuckin foundation for AxisOS, that dumb project
 // Get the Milkman to clean up comments lol
 #include <SPI.h>
 #include <SD.h>
