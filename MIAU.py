@@ -3,6 +3,7 @@
 MIAU - Monolithic Ino Aggregation Utility 🐱
 MicroKernel Assembler Utility
 Assembles multiple .txt module files into a single Arduino .ino file
+This utility is mostly AI-made. I use C++, don't know Python well...
 """
 
 import os
