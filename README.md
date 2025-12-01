@@ -1,7 +1,7 @@
 # **Picomimi MicroOS**
 
 > 🐱 **New Development Workflow (v12 Arte 2+):**  
-> Picomimi is transitioning to a **modular development structure**. The MicroKernel will be split into individual module files for easier editing, version control, and collaboration. **MIAU 🐱 (Monolithic Ino Aggregation Utility)** will assemble these modules into a single `.ino` file for compilation.  
+> Picomimi is transitioning to a **modular development structure**. The project will be split into individual module files for easier editing, version control, and collaboration. **MIAU 🐱 (Monolithic Ino Aggregation Utility)** will assemble these modules into a single `.ino` file for compilation.  
 >   
 > **Benefits:**  
 > - Edit individual modules without navigating massive files  
