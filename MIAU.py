@@ -349,13 +349,13 @@ def assemble_ino(files, output_path, excludes_path, args):
                 file_hash = calculate_hash(file)
                 module_hashes.append(f"{file.name}: {file_hash[:8]}")
                 
-                # Write loud module header (unless stripping comments)
+                # Write module header using standard C comments
                 if not args.strip_comments:
                     out.write("\n")
-                    out.write("/" + "="*78 + "\\\n")
-                    out.write(f"||  MODULE {num:02d}: {file.stem.upper():<60s}  ||\n")
-                    out.write(f"||  File: {file.name:<64s}  ||\n")
-                    out.write("\\" + "="*78 + "/\n\n")
+                    out.write("/*" + "="*76 + "\n")
+                    out.write(f" * MODULE {num:02d}: {file.stem.upper()}\n")
+                    out.write(f" * File: {file.name}\n")
+                    out.write(" " + "="*76 + "*/\n\n")
                 
                 # Write the actual content
                 out.write(content)
