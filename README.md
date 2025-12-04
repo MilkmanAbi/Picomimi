@@ -10,7 +10,7 @@
 > - **Same simple Arduino IDE workflow** — MIAU handles assembly automatically  
 >   
 > Developers can work on isolated modules (scheduler, IPC, memory manager, etc.), then run MIAU to build the final monolithic `.ino`. The development process becomes **modular** while deployment remains **monolithic and simple**.
-> Currently a work in progress to sensibly split this file, pardon the delay in dev... (｡•́  ̫ •̀｡)
+> Currently a work in progress to sensibly split this file, pardon the delay in dev... (,,>﹏<,,)
 ---
 
 Picomimi is a microOS for RP2040 and RP2350 microcontrollers.  
