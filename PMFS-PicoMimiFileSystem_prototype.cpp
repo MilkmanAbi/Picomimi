@@ -1,7 +1,6 @@
 /*
  * PMFS - PicoMimi FileSystem v2.0
- * Hyper-Advanced Filesystem with:
- * - Wear Leveling
+ * Basic Filesystem with:
  * - Journaling
  * - Write Caching
  * - A/B System Banks for OTA
