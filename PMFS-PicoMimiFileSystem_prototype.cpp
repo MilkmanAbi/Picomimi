@@ -1,33 +1,56 @@
 /*
- * PMFS - PicoMimi FileSystem v2.0
- * Basic Filesystem with:
- * - Journaling
- * - Write Caching
- * - A/B System Banks for OTA
- * - tmpfs (RAM disk)
- * - Quota Management
- * - File Locking
- * - Directory Indexing
- * - Auto-repair
- * - Compression Support Ready
- */
+ * PMFS (Picomimi Filesystem) - Picomimi System Storage Engine v2.0
  
-/*
- * MilkmanAbi Dev Notes:
- *
- * - WEAR LEVELING IS FAKE. REMOVE IT LATER. AI-GENERATED PROOF-OF-CONCEPT ONLY.
- *   SD CARDS HANDLE THIS INTERNALLY, BASTARD. THIS IS JUST A DEMO.
- * - TMPFS IS NOT WORKING. I MADE SOME SHIT.
- * - JOURNALING IS IN RAM, MOVE IT TO SD AT /.journal soon.
- *
- *
- * - FUCK. IMPLEMENT EMERGENCY UNMOUNT DURING KERNEL PANIC. RAHHHHH!!!!
- *
- * THIS IS HALF AI MADE, HALF ME. NOT EVEN GOMNA PRETEND LIKE I FULLY DID IT.
- * IT PROOF OF CONCEPT, I BORED
- * Meow. meow. mrrp?
- */
+ * * **PMFS is the core system driver for all persistent and volatile storage**
+ * within the PicoMimi OS. It provides a policy-driven layer built on the standard
+ * SD/FAT32 interface to introduce critical RTOS functionality.
 
+ * * * ============================================================================
+ * PMFS Architectural Features
+ * ============================================================================
+ * * 1. Transactional Journaling: 
+ * Ensures data consistency and atomicity across system events.
+ * * 2. High-Speed Write Caching:
+ * Minimises slow external I/O by batching writes and hopefully reducing flash wear.
+ * * 3. Dual System Banks (A/B OTA): 
+ * Enables secure, failsafe Over-The-Air firmware updates and rollbacks (Future Feature Introduction).
+ * * 4. Volatile Storage (tmpfs): 
+ * Provides a high-speed RAM-based file system for ephemeral system data.
+ * * 5. Concurrency Management (File Locking): 
+ * Implements thread-safe access to files for the RTOS kernel. (Soon, in v5.0)
+ * * 6. Resource Management:
+ * Includes support for Quota Management. (Soon, in v5.0)
+ * * 7. Integrity Features: 
+ * Includes Auto-repair routines and hooks for Compression Support. (Dev in progress)
+
+ * * * * ============================================================================
+ * Developer Status & Tasks (MilkmanAbi)
+ * ============================================================================
+ * * [STATUS: WEAR LEVELING] 
+ * The current wear-leveling logic is a **Simulated Proof-of-Concept** (PoC) 
+ * designed for demonstration only. It relies on the SD card's internal 
+ * controller and is scheduled for final removal.
+ * * [TASK: TMPFS] 
+ * The RAM disk implementation is currently non-functional and requires a 
+ * dedicated review of its memory allocation and file table logic.
+ * * [TASK: JOURNALING] 
+ * Journal data is currently stored in volatile RAM. Critical task to migrate 
+ * the journal to a persistent file on the SD card (`/.journal`) to ensure 
+ * true crash recovery.
+ * * [TASK: PANIC HANDLING]
+ * Implement an emergency, synchronised `pmfs.unmount()` call within the 
+ * Kernel Panic Handler to guarantee data integrity during system failures.
+
+ * * * * ============================================================================
+ * PMFS ARCHITECTURAL CLARIFICATION
+ * ============================================================================
+ * * **PMFS is the Picomimi System's Storage Engine.**
+ * It is a **Filesystem Abstraction Layer (FAL)** built on the standard SD.h
+ * library and the FAT32 format. It functions as the OS's driver, providing 
+ * critical RTOS features (journaling, locking) that the base SD library lacks. 
+ * This design enables rapid feature development without tackling the demon 
+ * of a low-level block driver replacement.
+ * */
 
 #include <SD.h>
 #include <Arduino.h>
