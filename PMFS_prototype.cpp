@@ -50,6 +50,34 @@
  * critical RTOS features (journaling, locking) that the base SD library lacks. 
  * This design enables rapid feature development without tackling the demon 
  * of a low-level block driver replacement.
+
+NOTES: This shit fucked. Duplication, file paste onto itself, These functions exist in the class but have no implementation:
+
+PMFS::seek
+
+PMFS::tell
+
+PMFS::size(int fd)
+
+PMFS::eof
+
+PMFS::rmdir
+
+PMFS::rename
+
+PMFS::verify_all_files
+
+PMFS::garbage_collect
+
+PMFS::defragment
+
+PMFS::get_used_space
+
+PMFS::get_fragmentation
+
+Bank “clear” function for copy
+I fix soon OwO
+ 
  * */
 
 #include <SD.h>
