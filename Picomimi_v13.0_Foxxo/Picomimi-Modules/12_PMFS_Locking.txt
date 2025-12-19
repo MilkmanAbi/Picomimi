@@ -1,0 +1,50 @@
+// ============================================================================
+// FILE LOCKING
+// ============================================================================
+
+bool PMFS::acquire_lock(const char* path, uint32_t task_id, bool exclusive) {
+    for (int i = 0; i < PMFS_MAX_LOCKS; i++) {
+        if (file_locks[i].active && strcmp(file_locks[i].path, path) == 0) {
+            if (file_locks[i].exclusive || exclusive) {
+                return false;
+            }
+            return true;
+        }
+    }
+    
+    for (int i = 0; i < PMFS_MAX_LOCKS; i++) {
+        if (!file_locks[i].active) {
+            file_locks[i].active = true;
+            strncpy(file_locks[i].path, path, PMFS_MAX_PATH_LENGTH - 1);
+            file_locks[i].owner_task_id = task_id;
+            file_locks[i].acquired_time = millis();
+            file_locks[i].exclusive = exclusive;
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+void PMFS::release_lock(const char* path) {
+    for (int i = 0; i < PMFS_MAX_LOCKS; i++) {
+        if (file_locks[i].active && strcmp(file_locks[i].path, path) == 0) {
+            file_locks[i].active = false;
+            return;
+        }
+    }
+}
+
+bool PMFS::is_locked(const char* path, uint32_t task_id) {
+    for (int i = 0; i < PMFS_MAX_LOCKS; i++) {
+        if (file_locks[i].active && strcmp(file_locks[i].path, path) == 0) {
+            if (file_locks[i].owner_task_id == task_id) {
+                return false;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+// ============================================================================

@@ -1,0 +1,494 @@
+  // Initialize PMFS
+  PMFSStatus status = pmfs.init(SD_CS);
+  
+  if (status == PMFS_OK) {
+    kout.println("[FS] PMFS initialized - root structure found");
+    kernel.fs_available = true;
+    kernel.sd_info.card_type = 2;
+    kernel.sd_info.valid = true;
+  } else if (status == PMFS_ERROR_NO_ROOT) {
+    kout.println("[FS] PMFS root not found - creating filesystem...");
+    status = pmfs.format_and_initialize();
+    if (status == PMFS_OK) {
+      kout.println("[FS] PMFS filesystem created successfully");
+      kernel.fs_available = true;
+      kernel.sd_info.valid = true;
+    } else {
+      kout.print("[FS] PMFS format failed: ");
+      kout.println(pmfs.status_to_string(status));
+      kernel.fs_available = false;
+      return;
+    }
+  } else if (status == PMFS_ERROR_SD_NOT_FOUND) {
+    kout.println("[FS] SD card not detected");
+    klog(1, "FS: No SD card");
+    kernel.fs_available = false;
+    return;
+  } else {
+    kout.print("[FS] PMFS init error: ");
+    kout.println(pmfs.status_to_string(status));
+    kernel.fs_available = false;
+    return;
+  }
+  
+  klog(0, "FS: PMFS Init OK");
+}
+
+void fs_log_init() {
+  if (!kernel.fs_available) return;
+  
+  File logFile = SD.open(FS_LOG_FILE, "r");
+  
+  if (!logFile) {
+    kout.println("[FS] Creating LogRecord file");
+    logFile = SD.open(FS_LOG_FILE, "w");
+    
+    if (logFile) {
+      logFile.println("=== Picomimi RTOS v13 System Log ===");
+      logFile.println("Format: [N] Timestamp Message");
+      logFile.println("================================");
+      logFile.close();
+      kernel.fs_log_counter = 0;
+      kout.println("[FS] LogRecord created");
+    } else {
+      kout.println("[FS] Failed to create LogRecord");
+      return;
+    }
+  } else {
+    kernel.fs_log_counter = 0;
+    
+    while (logFile.available()) {
+      String line = logFile.readStringUntil('\n');
+      
+      if (line.startsWith("[")) {
+        int endBracket = line.indexOf(']');
+        if (endBracket > 0) {
+          String numStr = line.substring(1, endBracket);
+          uint32_t num = numStr.toInt();
+          if (num > kernel.fs_log_counter) {
+            kernel.fs_log_counter = num;
+          }
+        }
+      }
+    }
+    
+    logFile.close();
+    kout.print("[FS] LogRecord found, last entry: ");
+    kout.println(kernel.fs_log_counter);
+  }
+}
+
+void fs_log_write(const char* message) {
+  if (!kernel.fs_mounted) return;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  pmfs.log_system(message);
+  kernel.fs_log_counter++;
+  mutex_exit(&kernel.fs_lock);
+}
+
+bool fs_mount() {
+  if (!kernel.fs_available) {
+    kout.println("[FS] SD card unavailable");
+    return false;
+  }
+  
+  PMFSStatus status = pmfs.mount();
+  if (status != PMFS_OK) {
+    kout.print("[FS] PMFS mount failed: ");
+    kout.println(pmfs.status_to_string(status));
+    return false;
+  }
+  
+  kernel.fs_mounted = true;
+  kernel.fs_alive = true;
+  
+  // Log initialization via PMFS
+  pmfs.log_system("Picomimi v13 kernel boot");
+  
+  kout.println("[FS] PMFS mounted");
+  klog(0, "FS: PMFS Mounted");
+  
+  return true;
+}
+
+void fs_unmount() {
+  if (!kernel.fs_mounted) return;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  // Close kernel's open files
+  for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
+    if (kernel.fs_open_files[i].open) {
+      kernel.fs_open_files[i].handle.close();
+      kernel.fs_open_files[i].open = false;
+      kernel.fs_open_files[i].owner_task_id = 0;
+    }
+  }
+  
+  // Unmount PMFS
+  pmfs.unmount();
+  
+  kernel.fs_mounted = false;
+  kernel.fs_alive = false;
+  
+  mutex_exit(&kernel.fs_lock);
+  
+  kout.println("[FS] PMFS unmounted");
+  klog(0, "FS: PMFS Unmounted");
+}
+
+bool fs_mkdir(const char* path) {
+  if (!kernel.fs_mounted) return false;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  bool result = SD.mkdir(path);
+  mutex_exit(&kernel.fs_lock);
+  
+  return result;
+}
+
+bool fs_remove(const char* path) {
+  if (!kernel.fs_mounted) return false;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  bool result = SD.remove(path);
+  if (!result) {
+    result = SD.rmdir(path);
+  }
+  mutex_exit(&kernel.fs_lock);
+  
+  return result;
+}
+
+void fs_list(const char* path) {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  File root = SD.open(path);
+  if (!root) {
+    kout.println("[FS] Failed to open directory");
+    return;
+  }
+  
+  if (!root.isDirectory()) {
+    kout.println("[FS] Not a directory");
+    root.close();
+    return;
+  }
+  
+  kout.print("\n=== FS Contents [");
+  kout.print(path);
+  kout.println("] ===");
+  kout.println("Name                             Type  Size");
+  kout.println("-------------------------------- ----- --------");
+  
+  File file = root.openNextFile();
+  uint32_t file_count = 0;
+  
+  while (file) {
+    file_count++;
+    if (file_count % 20 == 0) {
+      task_sleep(1);
+    }
+    
+    char buf[80];
+    snprintf(buf, sizeof(buf), "%-32s %-5s %8d",
+             file.name(),
+             file.isDirectory() ? "DIR" : "FILE",
+             (int)file.size());
+    kout.println(buf);
+    
+    file.close();
+    file = root.openNextFile();
+  }
+  
+  root.close();
+}
+
+void fs_stats() {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  kout.println("\n=== PMFS Statistics ===");
+  
+  kout.print("Free space: ");
+  kout.print((uint32_t)(pmfs.get_free_space() / 1024));
+  kout.println(" KB");
+  
+  kout.print("Used space: ");
+  kout.print((uint32_t)(pmfs.get_used_space() / 1024));
+  kout.println(" KB");
+  
+  kout.print("Fragmentation: ");
+  kout.print(pmfs.get_fragmentation(), 1);
+  kout.println("%");
+  
+  kout.print("tmpfs available: ");
+  kout.print(pmfs.tmpfs_available());
+  kout.println(" bytes");
+  
+  PMFSStats stats;
+  pmfs.get_stats(&stats);
+  
+  kout.print("Files created: ");
+  kout.println((uint32_t)stats.files_created);
+  kout.print("Bytes written: ");
+  kout.println((uint32_t)stats.bytes_written);
+  kout.print("Bytes read: ");
+  kout.println((uint32_t)stats.bytes_read);
+  kout.print("Cache hits: ");
+  kout.println((uint32_t)stats.cache_hits);
+  kout.print("Journal commits: ");
+  kout.println(stats.journal_commits);
+  
+  pmfs.print_metadata();
+}
+
+void fs_cat(const char* path) {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  File file = SD.open(path, "r");
+  if (!file) {
+    kout.println("[FS] Failed to open file");
+    return;
+  }
+  
+  if (file.isDirectory()) {
+    kout.println("[FS] Error: Is a directory");
+    file.close();
+    return;
+  }
+  
+  kout.println("\n=== File Contents ===");
+  while (file.available()) {
+    kout.write(file.read());
+  }
+  kout.println("\n=== End ===");
+  
+  file.close();
+  kernel.fs_reads++;
+}
+
+bool fs_write_new(const char* path, const char* content, bool append) {
+  if (!kernel.fs_mounted) return false;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  File file;
+  if (append) {
+    file = SD.open(path, "a");
+  } else {
+    file = SD.open(path, "w");
+  }
+  
+  if (!file) {
+    mutex_exit(&kernel.fs_lock);
+    return false;
+  }
+  
+  file.println(content);
+  file.close();
+  
+  kernel.fs_writes++;
+  mutex_exit(&kernel.fs_lock);
+  
+  return true;
+}
+
+void fs_logtail(uint32_t lines) {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  File file = SD.open(FS_LOG_FILE, "r");
+  if (!file) {
+    kout.println("[FS] Failed to open log file");
+    mutex_exit(&kernel.fs_lock);
+    return;
+  }
+  
+  uint32_t fsize = file.size();
+  if (fsize == 0) {
+    kout.println("[Log is empty]");
+    file.close();
+    mutex_exit(&kernel.fs_lock);
+    return;
+  }
+  
+  // Find starting position
+  uint32_t pos = fsize - 1;
+  uint32_t line_count = 0;
+  
+  while (pos > 0) {
+    file.seek(pos);
+    char c = file.read();
+    
+    if (c == '\n') {
+      line_count++;
+      if (line_count > lines) {
+        pos++;
+        break;
+      }
+    }
+    pos--;
+  }
+  
+  kout.print("\n=== Log Tail (");
+  kout.print(lines);
+  kout.println(" lines) ===");
+  
+  file.seek(pos);
+  while (file.available()) {
+    kout.write(file.read());
+  }
+  
+  if(pos > 0) kout.println();
+  kout.println("=== End ===");
+  
+  file.close();
+  kernel.fs_reads++;
+  
+  mutex_exit(&kernel.fs_lock);
+}
+
+int fs_open(const char* path, bool write_mode) {
+  if (!kernel.fs_mounted) return -1;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  int fd = -1;
+  for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
+    if (!kernel.fs_open_files[i].open) {
+      fd = i;
+      break;
+    }
+  }
+  
+  if (fd < 0) {
+    kout.println("[FS] No free file handles");
+    mutex_exit(&kernel.fs_lock);
+    return -1;
+  }
+  
+  File file;
+  if (write_mode) {
+    file = SD.open(path, "w");
+  } else {
+    file = SD.open(path, "r");
+  }
+  
+  if (!file) {
+    mutex_exit(&kernel.fs_lock);
+    return -1;
+  }
+  
+  kernel.fs_open_files[fd].handle = file;
+  kernel.fs_open_files[fd].open = true;
+  kernel.fs_open_files[fd].write_mode = write_mode;
+  kernel.fs_open_files[fd].owner_task_id = kernel.current_task;
+  
+  strncpy(kernel.fs_open_files[fd].path, path, FS_MAX_FILENAME - 1);
+  kernel.fs_open_files[fd].path[FS_MAX_FILENAME - 1] = '\0';
+  
+  mutex_exit(&kernel.fs_lock);
+  
+  return fd;
+}
+
+void fs_close(int fd) {
+  if (fd < 0 || fd >= FS_MAX_OPEN_FILES) return;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  if (kernel.fs_open_files[fd].open) {
+    kernel.fs_open_files[fd].handle.close();
+    kernel.fs_open_files[fd].open = false;
+    kernel.fs_open_files[fd].owner_task_id = 0;
+  }
+  
+  mutex_exit(&kernel.fs_lock);
+}
+
+// ============================================================================
+// SYSTEM TASKS
+// ============================================================================
+
+void idle_task(void* arg) {
+  task_sleep(100);
+}
+
+void k_reaper_task(void* arg) {
+  task_sleep(REAPER_INTERVAL_MS);
+  
+  if (kernel.zombie_tasks == 0) {
+    return;
+  }
+  
+  klog(0, "REAPER: Cleaning zombie tasks...");
+  
+  uint32_t reclaimed_bytes = 0;
+  uint32_t zombies_cleaned = 0;
+  
+  // Wait grace period before cleanup
+  task_sleep(REAPER_GRACE_PERIOD_MS);
+  
+  for (uint32_t i = 1; i < kernel.task_count; i++) {
+    disable_all_interrupts();
+    TCB* task = &kernel.tasks[i];
+    
+    if (task->state == TASK_ZOMBIE) {
+      enable_all_interrupts();
+      
+      uint32_t freed = 0;
+      
+      mutex_enter_blocking(&kernel.mem_lock);
+      
+      for (uint32_t b = 0; b < kernel.mem_block_count; b++) {
+        if (kernel.mem_blocks[b].owner_id == task->id) {
+          freed += kernel.mem_blocks[b].size;
+          kernel.mem_blocks[b].free = true;
+          kernel.total_free_mem += kernel.mem_blocks[b].size;
+          kernel.mem_blocks[b].owner_id = 0;
+        }
+      }
+      
+      mutex_exit(&kernel.mem_lock);
+      
+      if (freed > 0) {
+        reclaimed_bytes += freed;
+        mem_compact();
+      }
+      
+      disable_all_interrupts();
+      task->state = TASK_TERMINATED;
+      kernel.zombie_tasks--;
+      zombies_cleaned++;
+      enable_all_interrupts();
+    } else {
+      enable_all_interrupts();
+    }
+  }
+  
+  if(zombies_cleaned > 0) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "REAPER: Cleaned %d zombies, %dKB", 
+             (int)zombies_cleaned, (int)(reclaimed_bytes / 1024));
+    klog(0, buf);
+  }
+}
+
+void shell_task(void* arg) {
+  if (!kernel.shell_alive) {
+    task_sleep(10000);
+    return;

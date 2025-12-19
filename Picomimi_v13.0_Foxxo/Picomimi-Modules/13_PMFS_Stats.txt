@@ -1,0 +1,113 @@
+// ============================================================================
+// STATISTICS & MONITORING - ALL IMPLEMENTATIONS
+// ============================================================================
+
+void PMFS::get_stats(PMFSStats* out_stats) {
+    if (out_stats) {
+        memcpy(out_stats, &stats, sizeof(PMFSStats));
+    }
+}
+
+void PMFS::print_stats() {
+    Serial.println("\n[PMFS] ============================================");
+    Serial.println("[PMFS] FILESYSTEM STATISTICS");
+    Serial.println("[PMFS] ============================================");
+    Serial.print("[PMFS] Files Created: "); Serial.println(stats.files_created);
+    Serial.print("[PMFS] Files Deleted: "); Serial.println(stats.files_deleted);
+    Serial.print("[PMFS] Bytes Written: "); Serial.println(stats.bytes_written);
+    Serial.print("[PMFS] Bytes Read: "); Serial.println(stats.bytes_read);
+    Serial.print("[PMFS] Cache Hits: "); Serial.println(stats.cache_hits);
+    Serial.print("[PMFS] Cache Misses: "); Serial.println(stats.cache_misses);
+    Serial.print("[PMFS] Journal Commits: "); Serial.println(stats.journal_commits);
+    Serial.print("[PMFS] tmpfs Used: "); Serial.print(tmpfs_used);
+    Serial.print(" / "); Serial.println(PMFS_TMPFS_SIZE);
+    Serial.print("[PMFS] Fragmentation: "); Serial.print(get_fragmentation(), 1);
+    Serial.println("%");
+}
+
+uint64_t PMFS::get_free_space() {
+    // Note: SD library on RP2040 doesn't provide this easily
+    // This is a placeholder that would need platform-specific implementation
+    return 0;
+}
+
+uint64_t PMFS::get_total_space() {
+    return 0;
+}
+
+// IMPLEMENTED: Calculate used space
+uint64_t PMFS::get_used_space() {
+    uint64_t total = 0;
+    calculate_directory_size(PMFS_ROOT_DIR, &total);
+    return total;
+}
+
+PMFSStatus PMFS::calculate_directory_size(const char* path, uint64_t* size) {
+    File dir = SD.open(path);
+    if (!dir) return PMFS_ERROR_FILE_NOT_FOUND;
+    
+    File file = dir.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            char subdir[PMFS_MAX_PATH_LENGTH];
+            snprintf(subdir, sizeof(subdir), "%s/%s", path, file.name());
+            file.close();
+            calculate_directory_size(subdir, size);
+        } else {
+            *size += file.size();
+            file.close();
+        }
+        file = dir.openNextFile();
+    }
+    
+    dir.close();
+    return PMFS_OK;
+}
+
+// IMPLEMENTED: Calculate fragmentation percentage
+float PMFS::get_fragmentation() {
+    uint32_t total_files = 0;
+    uint32_t fragmented_files = 0;
+    
+    count_files_recursive(PMFS_ROOT_DIR, &total_files);
+    
+    // Simplified fragmentation calculation
+    // In a real implementation, this would check file cluster chains
+    // For now, we estimate based on file count and write patterns
+    
+    if (total_files == 0) return 0.0f;
+    
+    // Heuristic: More files + more writes = more fragmentation
+    float write_factor = (float)metadata.total_writes / 1000.0f;
+    float file_factor = (float)total_files / 100.0f;
+    
+    float fragmentation = (write_factor + file_factor) * 10.0f;
+    if (fragmentation > 100.0f) fragmentation = 100.0f;
+    
+    return fragmentation;
+}
+
+PMFSStatus PMFS::count_files_recursive(const char* path, uint32_t* count) {
+    File dir = SD.open(path);
+    if (!dir) return PMFS_ERROR_FILE_NOT_FOUND;
+    
+    File file = dir.openNextFile();
+    while (file) {
+        if (file.isDirectory()) {
+            char subdir[PMFS_MAX_PATH_LENGTH];
+            snprintf(subdir, sizeof(subdir), "%s/%s", path, file.name());
+            file.close();
+            count_files_recursive(subdir, count);
+        } else {
+            (*count)++;
+            file.close();
+        }
+        file = dir.openNextFile();
+    }
+    
+    dir.close();
+    return PMFS_OK;
+}
+
+// ============================================================================
+// MAINTENANCE - ALL IMPLEMENTATIONS

@@ -1,0 +1,316 @@
+  socket_api->release_focus = k_release_gui_focus;
+  socket_api->register_stdout = k_register_stdout_target;
+  socket_api->send_message_api = ipc_send_api;
+  socket_api->receive_message_api = ipc_receive_api;
+  socket_api->spawn_core1_task = k_spawn_core1_task;
+  socket_api->task_exit = k_task_exit_api;
+  socket_api->mutex_lock = k_mutex_lock;
+  socket_api->mutex_unlock = k_mutex_unlock;
+  socket_api->sem_wait = k_sem_wait;
+  socket_api->sem_post = k_sem_post;
+  socket_api->event_wait = k_event_wait;
+  socket_api->event_set = k_event_set;
+  socket_api->get_core0_usage = k_get_core0_usage;
+  socket_api->get_core1_usage = k_get_core1_usage;
+  socket_api->get_task_memory = k_get_task_memory_api;
+  socket_api->register_oom_handler = k_register_oom_handler;
+  socket_api->oom_cleanup_done = k_oom_cleanup_done;
+  socket_api->hint_memory_pressure = k_hint_memory_pressure;
+}
+
+void k_unregister_gui_app(uint32_t task_id) {
+  uint32_t irq_state = save_and_disable_interrupts();
+  
+  int32_t found_index = -1;
+  
+  for (uint32_t i = 0; i < gui_app_count; i++) {
+    if (gui_app_task_ids[i] == task_id) {
+      found_index = i;
+      break;
+    }
+  }
+  
+  if (found_index != -1) {
+    for (uint32_t i = found_index; i < gui_app_count - 1; i++) {
+      gui_app_task_ids[i] = gui_app_task_ids[i + 1];
+    }
+    gui_app_count--;
+    
+    if (current_gui_focus_index == found_index) {
+      current_gui_focus_index = -1;
+    } else if (current_gui_focus_index > found_index) {
+      current_gui_focus_index--;
+    }
+  }
+  
+  restore_interrupts(irq_state);
+}
+
+// ============================================================================
+// APP REGISTRATION
+// ============================================================================
+
+void Application_Register(const char* name, void (*spawn_func)()) {
+  if (app_registry_count >= MAX_APPS) {
+    Serial.print("APP_REG: !! Registry full, ");
+    Serial.print(name);
+    Serial.println(" failed !!");
+    return;
+  }
+  
+  AppEntry* entry = &app_registry[app_registry_count];
+  strncpy(entry->name, name, TASK_NAME_LEN - 1);
+  entry->name[TASK_NAME_LEN - 1] = '\0';
+  entry->spawn_func = spawn_func;
+  
+  app_registry_count++;
+  
+  Serial.print("APP_REG: Registered '");
+  Serial.print(name);
+  Serial.println("'");
+}
+
+// ============================================================================
+// SETUP & LOOP
+// ============================================================================
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  
+  mutex_init(&kout_mutex);
+  
+  Serial.println("APP_REG: Registration phase complete.");
+  
+  // Initialize SPI for SD card
+  SPI.setRX(SD_MISO);
+  SPI.setTX(SD_MOSI);
+  SPI.setSCK(SD_SCK);
+  
+  randomSeed(micros());
+  
+  kout.println("================================================");
+  kout.println(" Picomimi Kernel v13 Mach 1");
+  kout.println(" Advanced Instant OOM");
+  kout.println("================================================");
+  kout.println("Initializing...");
+  
+  // Initialize watchdog
+  watchdog_init();
+  
+  // Initialize input
+  pinMode(BTN_ONOFF, INPUT_PULLUP);
+  kout.println("[OK] Input system");
+  
+  // Initialize temperature
+  temp_init();
+  kernel.temperature = read_temperature();
+  kout.print("[OK] Temperature (");
+  kout.print(kernel.temperature, 1);
+  kout.println("C)");
+  
+  // Initialize memory
+  mem_init();
+  kout.println("[OK] Memory manager (Best-Fit + Merge-on-Free)");
+  
+  // Initialize tasks
+  task_init();
+  kernel.last_velocity_check_ms = get_time_ms();
+  kout.println("[OK] Task scheduler (Preemptive O(1))");
+  
+  // Initialize logging
+  mutex_init(&kernel.log_lock);
+  kout.println("[OK] Logging system");
+  
+  // Initialize IPC
+  ipc_init();
+  
+  // Initialize RTOS primitives
+  rtos_primitives_init();
+  
+  
+  // Initialize Core 1
+  kout.println("[CORE1] Initializing secondary core...");
+  core1_scheduler_init();
+  multicore_launch_core1(core1_main);
+  kernel.core1_initialized = true;
+  kout.println("[OK] Core1 started");
+  
+  // Initialize filesystem
+  fs_init();
+  if (kernel.fs_available) {
+    fs_mount();
+  }
+  
+  kout.println("\n=== Loading System Tasks ===");
+  
+  // Create idle task
+  task_create("idle", idle_task, NULL, 0,
+              TASK_TYPE_KERNEL, TASK_FLAG_PROTECTED | TASK_FLAG_CRITICAL | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NEVER, 0, 0, NULL, 
+              "Kernel idle task", CORE_0);
+  kout.println("[OK] Idle (Pri 0, Core 0)");
+  
+  // Create reaper task
+  task_create("k_reaper", k_reaper_task, NULL, 1,
+              TASK_TYPE_KERNEL, TASK_FLAG_PROTECTED | TASK_FLAG_CRITICAL | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NEVER, 1 * 1024, 1 * 1024, NULL, 
+              "Zombie task reaper", CORE_0);
+  kout.println("[OK] Reaper (Pri 1, Core 0)");
+  
+  // Create input driver
+  task_create("input_cycle", NULL, NULL, 28,
+              TASK_TYPE_DRIVER, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NEVER, 1 * 1024, 1 * 1024, &input_callbacks, 
+              "Focus cycle driver", CORE_0);
+  kout.println("[OK] Input driver (Pri 28, Core 0)");
+  
+  // Create shell
+  task_create("shell", NULL, NULL, 10,
+              TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NORMAL, 4 * 1024, 4 * 1024, &shell_callbacks, 
+              "Command shell", CORE_0);
+  kout.println("[OK] Shell service (Pri 10, Core 0)");
+  
+  // Create CPU monitor
+  task_create("cpumon", NULL, NULL, 2,
+              TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NEVER, 2 * 1024, 2 * 1024, &cpumon_callbacks, 
+              "CPU monitor", CORE_0);
+  kout.println("[OK] CPU monitor (Pri 2, Core 0)");
+  
+  // Create temperature monitor
+  task_create("tempmon", NULL, NULL, 2,
+              TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 
+              0, OOM_PRIORITY_NEVER, 2 * 1024, 2 * 1024, &tempmon_callbacks, 
+              "Temp monitor", CORE_0);
+  kout.println("[OK] Temp monitor (Pri 2, Core 0)");
+  
+  // Create FS service if available
+  if (kernel.fs_available) {
+    task_create("fs", NULL, NULL, 8,
+                TASK_TYPE_SERVICE, TASK_FLAG_PROTECTED | TASK_FLAG_RESPAWN, 
+                0, OOM_PRIORITY_NEVER, 4 * 1024, 4 * 1024, &fs_callbacks, 
+                "FS service", CORE_0);
+    kout.println("[OK] FS service (Pri 8, Core 0)");
+  }
+  
+  kout.println("========================================");
+  kout.println("Kernel boot complete!");
+  kout.println("========================================");
+  
+  kout.print("Heap: ");
+  kout.print((HEAP_SIZE - KERNEL_RESERVE) / 1024);
+  kout.print(" KB (App) + ");
+  kout.print(KERNEL_RESERVE / 1024);
+  kout.println(" KB (Sys)");
+  
+  kout.print("Core0 Tasks: ");
+  kout.println(kernel.task_count);
+  
+  kout.println("Core1: Ready for offload");
+  
+  kout.print("Apps: ");
+  kout.print(app_registry_count);
+  kout.println(" registered");
+  
+  if (kernel.fs_available) {
+    kout.println("SD Card: Available");
+  } else {
+    kout.println("SD Card: Unavailable");
+  }
+  
+  kout.println("\nType 'help' for commands");
+  
+  klog(0, "KERNEL: Boot v13 (Memory & CPU Protection)");
+  
+  shell_prompt();
+  
+  kernel.running = true;
+}
+
+void loop() {
+  // Safety checks
+  if (kernel.current_task >= MAX_TASKS || !kernel.running || kernel.task_count == 0) {
+    kernel_panic("Kernel loop fault");
+  }
+  
+  uint64_t loop_start = get_time_us();
+  
+  // Run scheduler tick
+  scheduler_tick();
+  
+  // Check if idle task is dead
+  if (kernel.tasks[0].state == TASK_TERMINATED || kernel.tasks[0].entry == NULL) {
+    kernel_panic("IDLE TASK DEAD");
+  }
+  
+  // Handle preemption
+  if (kernel.preemption_pending) {
+    kernel.preemption_pending = false;
+    core0_sched.preemptions++;
+    task_yield();
+  }
+  
+  TCB* task = &kernel.tasks[kernel.current_task];
+  
+  // Skip terminated/zombie/blocked tasks
+  if (task->state == TASK_TERMINATED || task->state == TASK_ZOMBIE || task->mem_blocked) {
+    task_yield();
+    return;
+  }
+  
+  // Handle OOM cleanup requests
+  if (task->flags & TASK_FLAG_OOM_CLEANUP_REQUESTED) {
+    oom_callback_t handler = oom_get_handler(task->id);
+    if (handler) {
+      kout.print("[OOM] Invoking handler for '");
+      kout.print(task->name);
+      kout.println("'");
+      handler(task->oom_bytes_requested);
+    }
+    task->flags &= ~TASK_FLAG_OOM_CLEANUP_REQUESTED;
+    task->oom_bytes_requested = 0;
+  }
+  
+  // Execute task
+  if ((task->state == TASK_READY || task->state == TASK_RUNNING) &&
+      (task->entry || (task->callbacks && task->callbacks->tick))) {
+    
+    task->state = TASK_RUNNING;
+    uint64_t task_start = get_time_us();
+    
+    if (task->callbacks && task->callbacks->tick) {
+      task->callbacks->tick(task->arg);
+    } else if (task->entry) {
+      task->entry(task->arg);
+    }
+    
+    uint64_t task_duration = get_time_us() - task_start;
+    task->cpu_time += (task_duration + 500) / 1000;
+    task->total_cpu_time_us += task_duration;
+    
+    // Update CPU usage tracking
+    update_task_cpu_usage(task, task_duration);
+    
+    if (task->state == TASK_RUNNING) {
+      task->state = TASK_READY;
+    }
+  }
+  
+  // Yield to next task
+  task_yield();
+  
+  // Feed watchdog periodically
+  static uint32_t watchdog_counter = 0;
+  if (++watchdog_counter >= 10) {
+    watchdog_feed();
+    watchdog_counter = 0;
+  }
+  
+  // Sleep for remaining time
+  uint64_t elapsed = get_time_us() - loop_start;
+  if (elapsed < SCHEDULER_TICK_US) {
+    precise_sleep_us(SCHEDULER_TICK_US - elapsed);
+  }
+}

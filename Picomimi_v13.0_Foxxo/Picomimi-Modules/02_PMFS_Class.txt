@@ -1,0 +1,171 @@
+// ============================================================================
+// PMFS CLASS
+// ============================================================================
+
+class PMFS {
+private:
+    // Core state
+    bool initialized;
+    bool mounted;
+    PMFSMetadata metadata;
+    PMFSStats stats;
+    
+    // File management
+    PMFSFileHandle file_handles[PMFS_MAX_OPEN_FILES];
+    PMFSFileLock file_locks[PMFS_MAX_LOCKS];
+    
+    // Journaling
+    PMFSJournalEntry journal[PMFS_JOURNAL_ENTRIES];
+    uint32_t journal_head;
+    
+    // Write cache
+    PMFSWriteCache write_cache;
+    bool cache_enabled;
+    
+    // tmpfs (RAM disk) - FIXED IMPLEMENTATION
+    PMFSTmpFSEntry tmpfs_entries[PMFS_MAX_TMPFS_ENTRIES];
+    uint8_t tmpfs_pool[PMFS_TMPFS_SIZE];
+    uint32_t tmpfs_used;
+    uint32_t tmpfs_next_offset;
+    
+    // Internal helpers
+    PMFSStatus create_directory_tree();
+    PMFSStatus load_metadata();
+    PMFSStatus save_metadata();
+    PMFSStatus verify_integrity();
+    PMFSStatus replay_journal();
+    PMFSStatus commit_journal();
+    PMFSStatus save_journal_to_disk();
+    PMFSStatus load_journal_from_disk();
+    void init_journal();
+    void init_tmpfs();
+    
+    PMFSStatus journal_add(PMFSJournalOp op, const char* path, const char* path2 = nullptr);
+    PMFSStatus cache_write(const char* path, const uint8_t* data, uint32_t size);
+    PMFSStatus cache_flush();
+    
+    uint32_t calculate_crc32(const uint8_t* data, uint32_t length);
+    bool path_exists(const char* path);
+    bool is_directory(const char* path);
+    
+    int find_free_handle();
+    PMFSFileHandle* get_handle(int fd);
+    
+    bool acquire_lock(const char* path, uint32_t task_id, bool exclusive);
+    void release_lock(const char* path);
+    bool is_locked(const char* path, uint32_t task_id);
+    
+    PMFSStatus recursive_delete(const char* path);
+    PMFSStatus count_files_recursive(const char* path, uint32_t* count);
+    PMFSStatus calculate_directory_size(const char* path, uint64_t* size);
+    
+public:
+    PMFS();
+    ~PMFS();
+    
+    // ========================================================================
+    // INITIALIZATION & MOUNTING
+    // ========================================================================
+    
+    PMFSStatus init(uint8_t cs_pin = 5);
+    PMFSStatus check_root_exists();
+    PMFSStatus format_and_initialize();
+    PMFSStatus mount();
+    PMFSStatus unmount();
+    PMFSStatus emergency_unmount();  // For kernel panic
+    PMFSStatus fsck(bool auto_repair = true);
+    
+    bool is_initialized() { return initialized; }
+    bool is_mounted() { return mounted; }
+    
+    // ========================================================================
+    // FILE OPERATIONS - ALL IMPLEMENTED
+    // ========================================================================
+    
+    int open(const char* path, uint32_t flags, uint32_t task_id = 0);
+    PMFSStatus close(int fd);
+    int read(int fd, uint8_t* buffer, uint32_t size);
+    int write(int fd, const uint8_t* data, uint32_t size);
+    PMFSStatus seek(int fd, uint32_t position);  // IMPLEMENTED
+    uint32_t tell(int fd);                        // IMPLEMENTED
+    uint32_t size(int fd);                        // IMPLEMENTED
+    bool eof(int fd);                             // IMPLEMENTED
+    PMFSStatus flush(int fd);
+    
+    PMFSStatus remove(const char* path);
+    PMFSStatus rename(const char* old_path, const char* new_path);  // IMPLEMENTED
+    PMFSStatus mkdir(const char* path);
+    PMFSStatus rmdir(const char* path, bool recursive = false);     // IMPLEMENTED
+    
+    bool exists(const char* path);
+    bool is_file(const char* path);
+    bool is_dir(const char* path);
+    uint32_t file_size(const char* path);
+    
+    // ========================================================================
+    // TMPFS (RAM DISK) - FULLY FUNCTIONAL
+    // ========================================================================
+    
+    PMFSStatus tmpfs_create(const char* name, uint32_t size);
+    PMFSStatus tmpfs_write(const char* name, const uint8_t* data, uint32_t size);
+    int tmpfs_read(const char* name, uint8_t* buffer, uint32_t max_size);
+    PMFSStatus tmpfs_delete(const char* name);
+    bool tmpfs_exists(const char* name);
+    void tmpfs_clear();
+    uint32_t tmpfs_available();
+    void tmpfs_compact();  // Defragment tmpfs
+    
+    // ========================================================================
+    // SYSTEM BANK MANAGEMENT (A/B OTA)
+    // ========================================================================
+    
+    PMFSSystemBank get_active_bank();
+    PMFSSystemBank get_backup_bank();
+    PMFSStatus set_active_bank(PMFSSystemBank bank);
+    PMFSStatus copy_bank(PMFSSystemBank src, PMFSSystemBank dst);
+    PMFSStatus clear_bank(PMFSSystemBank bank);  // IMPLEMENTED
+    PMFSStatus verify_bank(PMFSSystemBank bank);
+    const char* get_bank_path(PMFSSystemBank bank);
+    
+    // ========================================================================
+    // LOGGING
+    // ========================================================================
+    
+    PMFSStatus log_system(const char* message);
+    PMFSStatus log_user(const char* message);
+    PMFSStatus log_rotate(const char* log_dir, uint32_t max_files = 10);
+    PMFSStatus read_log_tail(const char* log_path, char* buffer, uint32_t lines = 20);
+    
+    // ========================================================================
+    // STATISTICS & MONITORING - ALL IMPLEMENTED
+    // ========================================================================
+    
+    void get_stats(PMFSStats* out_stats);
+    void print_stats();
+    uint64_t get_free_space();
+    uint64_t get_total_space();
+    uint64_t get_used_space();        // IMPLEMENTED
+    float get_fragmentation();        // IMPLEMENTED
+    
+    PMFSMetadata* get_metadata() { return &metadata; }
+    
+    // ========================================================================
+    // MAINTENANCE - ALL IMPLEMENTED
+    // ========================================================================
+    
+    PMFSStatus defragment();          // IMPLEMENTED
+    PMFSStatus garbage_collect();     // IMPLEMENTED
+    PMFSStatus verify_all_files();    // IMPLEMENTED
+    PMFSStatus repair_corruption();
+    PMFSStatus verify_directory_recursive(const char* path, uint32_t* files_checked, uint32_t* errors_found);
+    
+    // ========================================================================
+    // UTILITY
+    // ========================================================================
+    
+    const char* status_to_string(PMFSStatus status);
+    void print_tree(const char* path = PMFS_ROOT_DIR, int depth = 0);
+    void print_metadata();
+};
+
+// ============================================================================

@@ -1,0 +1,55 @@
+// LOGGING
+// ============================================================================
+
+void klog(uint8_t level, const char* msg) {
+  mutex_enter_blocking(&kernel.log_lock);
+  
+  LogEntry* entry = &kernel.log[kernel.log_head];
+  entry->timestamp = get_time_ms();
+  entry->level = level;
+  
+  strncpy(entry->message, msg, sizeof(entry->message) - 1);
+  entry->message[sizeof(entry->message) - 1] = '\0';
+  
+  kernel.log_head = (kernel.log_head + 1) % MAX_LOG_ENTRIES;
+  
+  if (kernel.log_count < MAX_LOG_ENTRIES) {
+    kernel.log_count++;
+  }
+  
+  mutex_exit(&kernel.log_lock);
+  
+  if (kernel.fs_mounted && level >= 2) {
+    fs_log_write(msg);
+  }
+}
+
+// Continuing with filesystem and remaining code in next message... Femboicoderz01
+
+// ============================================================================
+// FILESYSTEM
+// ============================================================================
+
+void fs_init() {
+  mutex_init(&kernel.fs_lock);
+  
+  kernel.fs_available = false;
+  kernel.fs_mounted = false;
+  kernel.sd_info.valid = false;
+  kernel.fs_used_bytes = 0;
+  kernel.fs_reads = 0;
+  kernel.fs_writes = 0;
+  kernel.fs_log_counter = 0;
+  
+  for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
+    kernel.fs_open_files[i].open = false;
+    kernel.fs_open_files[i].owner_task_id = 0;
+  }
+  
+  kout.println("[FS] Initializing PMFS (Picomimi Filesystem)...");
+  
+  pinMode(SD_CS, OUTPUT);
+  digitalWrite(SD_CS, HIGH);
+  delay(500);
+  
+  // Initialize PMFS

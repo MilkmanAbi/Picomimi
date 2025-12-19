@@ -1,0 +1,118 @@
+// ============================================================================
+// SYSTEM BANK MANAGEMENT
+// ============================================================================
+
+PMFSSystemBank PMFS::get_active_bank() {
+    return metadata.active_bank;
+}
+
+PMFSSystemBank PMFS::get_backup_bank() {
+    return metadata.backup_bank;
+}
+
+const char* PMFS::get_bank_path(PMFSSystemBank bank) {
+    if (bank == PMFS_BANK_A) return PMFS_SYSTEM_A_DIR;
+    if (bank == PMFS_BANK_B) return PMFS_SYSTEM_B_DIR;
+    return nullptr;
+}
+
+PMFSStatus PMFS::set_active_bank(PMFSSystemBank bank) {
+    if (bank != PMFS_BANK_A && bank != PMFS_BANK_B) {
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    
+    Serial.print("[PMFS] Switching active bank to: ");
+    Serial.println(bank == PMFS_BANK_A ? "A" : "B");
+    
+    PMFSSystemBank old_active = metadata.active_bank;
+    metadata.active_bank = bank;
+    metadata.backup_bank = old_active;
+    
+    save_metadata();
+    
+    return PMFS_OK;
+}
+
+// IMPLEMENTED: Clear bank for OTA
+PMFSStatus PMFS::clear_bank(PMFSSystemBank bank) {
+    const char* bank_path = get_bank_path(bank);
+    if (!bank_path) {
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    
+    Serial.print("[PMFS] Clearing bank: ");
+    Serial.println(bank == PMFS_BANK_A ? "A" : "B");
+    
+    return recursive_delete(bank_path);
+}
+
+PMFSStatus PMFS::copy_bank(PMFSSystemBank src, PMFSSystemBank dst) {
+    Serial.println("[PMFS] Copying bank (this may take a while)...");
+    
+    const char* src_path = get_bank_path(src);
+    const char* dst_path = get_bank_path(dst);
+    
+    if (!src_path || !dst_path) {
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    
+    // Clear destination first
+    clear_bank(dst);
+    SD.mkdir(dst_path);
+    
+    File src_dir = SD.open(src_path);
+    if (!src_dir || !src_dir.isDirectory()) {
+        Serial.println("[PMFS] ERROR: Cannot open source bank");
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    uint32_t files_copied = 0;
+    File file = src_dir.openNextFile();
+    
+    while (file) {
+        if (!file.isDirectory()) {
+            char dst_file_path[PMFS_MAX_PATH_LENGTH];
+            snprintf(dst_file_path, sizeof(dst_file_path), "%s/%s", dst_path, file.name());
+            
+            File dst_file = SD.open(dst_file_path, FILE_WRITE);
+            if (dst_file) {
+                uint8_t buffer[512];
+                while (file.available()) {
+                    int read_bytes = file.read(buffer, sizeof(buffer));
+                    dst_file.write(buffer, read_bytes);
+                }
+                dst_file.close();
+                files_copied++;
+            }
+        }
+        
+        file.close();
+        file = src_dir.openNextFile();
+    }
+    
+    src_dir.close();
+    
+    Serial.print("[PMFS] Copied ");
+    Serial.print(files_copied);
+    Serial.println(" files");
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::verify_bank(PMFSSystemBank bank) {
+    const char* bank_path = get_bank_path(bank);
+    if (!bank_path) {
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    
+    if (!SD.exists(bank_path)) {
+        Serial.println("[PMFS] ERROR: Bank directory missing");
+        return PMFS_ERROR_FILE_NOT_FOUND;
+    }
+    
+    // TODO: Implement checksum verification
+    
+    return PMFS_OK;
+}
+
+// ============================================================================

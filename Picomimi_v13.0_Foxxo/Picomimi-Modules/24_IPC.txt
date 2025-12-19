@@ -1,0 +1,266 @@
+// IPC SYSTEM
+// ============================================================================
+
+void ipc_init() {
+  mutex_init(&kernel.ipc_manager.lock);
+  
+  kernel.ipc_manager.sequence_counter = 0;
+  kernel.ipc_manager.dropped_messages = 0;
+  kernel.ipc_manager.total_sent = 0;
+  kernel.ipc_manager.total_received = 0;
+  kernel.ipc_manager.free_list_head = MAX_IPC_MESSAGES - 1;
+  
+  for (uint32_t i = 0; i < MAX_IPC_MESSAGES; i++) {
+    kernel.ipc_manager.message_pool[i].in_use = false;
+    kernel.ipc_manager.free_list[i] = i;
+  }
+  
+  memset(&ipc_stats, 0, sizeof(ipc_stats));
+  
+  kout.println("[IPC] O(1) Pool Manager initialized");
+}
+
+TCB* ipc_get_tcb_by_id_unsafe(uint32_t task_id) {
+  if (task_id < 1000) {
+    if (task_id < kernel.task_count) {
+      return &kernel.tasks[task_id];
+    }
+  } else {
+    uint32_t local_id = task_id - 1000;
+    if (local_id < kernel.core1.task_count) {
+      return &kernel.core1.tasks[local_id];
+    }
+  }
+  return NULL;
+}
+
+bool ipc_send_raw(uint32_t sender_id, uint32_t target_id, IPCMessageType type,
+                  void* data, size_t size, uint8_t priority) {
+  
+  mutex_enter_blocking(&kernel.ipc_manager.lock);
+  
+  if (kernel.ipc_manager.free_list_head < 0) {
+    mutex_exit(&kernel.ipc_manager.lock);
+    ipc_stats.messages_dropped_pool_full++;
+    klog(2, "IPC: Global pool full");
+    return false;
+  }
+  
+  uint16_t msg_index = kernel.ipc_manager.free_list[kernel.ipc_manager.free_list_head--];
+  IPCMessage* msg = &kernel.ipc_manager.message_pool[msg_index];
+  
+  msg->in_use = true;
+  msg->sender_id = sender_id;
+  msg->target_id = target_id;
+  msg->type = type;
+  msg->priority = priority;
+  msg->timestamp = get_time_us();
+  msg->sequence = kernel.ipc_manager.sequence_counter++;
+  msg->next = IPC_NULL_MSG;
+  
+  if (data && size > 0) {
+    memcpy(msg->data, data, size);
+  }
+  
+  mutex_exit(&kernel.ipc_manager.lock);
+  
+  // Find target task
+  bool is_core1 = (target_id >= 1000);
+  
+  if (is_core1) {
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  }
+  
+  TCB* target_task = ipc_get_tcb_by_id_unsafe(target_id);
+  
+  if (target_task == NULL || target_task->state == TASK_ZOMBIE || target_task->mem_blocked) {
+    if (is_core1) {
+      mutex_exit(&kernel.core1.scheduler_lock);
+    }
+    
+    mutex_enter_blocking(&kernel.ipc_manager.lock);
+    msg->in_use = false;
+    kernel.ipc_manager.free_list[++kernel.ipc_manager.free_list_head] = msg_index;
+    mutex_exit(&kernel.ipc_manager.lock);
+    
+    return false;
+  }
+  
+  // Lock target task queue
+  if (!is_core1) {
+    disable_all_interrupts();
+  }
+  
+  if (target_task->ipc.message_count >= MAX_IPC_MESSAGES) {
+    if (is_core1) {
+      mutex_exit(&kernel.core1.scheduler_lock);
+    } else {
+      enable_all_interrupts();
+    }
+    
+    mutex_enter_blocking(&kernel.ipc_manager.lock);
+    msg->in_use = false;
+    kernel.ipc_manager.free_list[++kernel.ipc_manager.free_list_head] = msg_index;
+    mutex_exit(&kernel.ipc_manager.lock);
+    
+    ipc_stats.messages_dropped_task_full++;
+    return false;
+  }
+  
+  // Add to priority queue
+  uint16_t* head = &target_task->ipc.priority_lists_head[priority];
+  msg->next = *head;
+  *head = msg_index;
+  
+  target_task->ipc.priority_bitmap |= (1U << priority);
+  target_task->ipc.message_count++;
+  
+  if (is_core1) {
+    mutex_exit(&kernel.core1.scheduler_lock);
+  } else {
+    enable_all_interrupts();
+  }
+  
+  kernel.ipc_manager.total_sent++;
+  ipc_stats.messages_sent++;
+  
+  return true;
+}
+
+bool ipc_send_api(uint32_t target_id, IPCMessageType type,
+                  void* data, size_t size, uint8_t priority) {
+  
+  if (size > IPC_MSG_SIZE) {
+    klog(2, "IPC: Message too large");
+    return false;
+  }
+  
+  if (priority >= SCHED_NUM_PRIORITY_LEVELS) {
+    priority = SCHED_NUM_PRIORITY_LEVELS - 1;
+  }
+  
+  uint32_t sender_id = 0;
+  if (get_core_num() == 0) sender_id = kernel.current_task;
+  else sender_id = kernel.core1.tasks[core1_sched.current_task].id;
+  
+  // Handle broadcast
+  if (target_id == IPC_TARGET_BROADCAST) {
+    bool all_ok = true;
+    ipc_stats.broadcasts_sent++;
+    
+    for(uint32_t i=0; i < kernel.task_count; i++) {
+      if (kernel.tasks[i].id != sender_id && 
+          kernel.tasks[i].state != TASK_ZOMBIE && 
+          !kernel.tasks[i].mem_blocked) {
+        if (!ipc_send_raw(sender_id, kernel.tasks[i].id, type, data, size, priority)) {
+          all_ok = false;
+        }
+      }
+    }
+    
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+    for(uint32_t i=0; i < kernel.core1.task_count; i++) {
+      if (kernel.core1.tasks[i].id != sender_id && !kernel.core1.tasks[i].mem_blocked) {
+        uint32_t c1_target_id = kernel.core1.tasks[i].id;
+        mutex_exit(&kernel.core1.scheduler_lock);
+        
+        if (!ipc_send_raw(sender_id, c1_target_id, type, data, size, priority)) {
+          all_ok = false;
+        }
+        
+        mutex_enter_blocking(&kernel.core1.scheduler_lock);
+      }
+    }
+    mutex_exit(&kernel.core1.scheduler_lock);
+    
+    return all_ok;
+  }
+  
+  return ipc_send_raw(sender_id, target_id, type, data, size, priority);
+}
+
+bool ipc_receive_api(IPCMessage* msg_out) {
+  if (!msg_out) return false;
+  
+  TCB* task = NULL;
+  bool is_core1 = (get_core_num() == 1);
+  
+  if (is_core1) {
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+    task = &kernel.core1.tasks[core1_sched.current_task];
+  } else {
+    disable_all_interrupts();
+    task = &kernel.tasks[kernel.current_task];
+  }
+  
+  if (task == NULL) {
+    if(is_core1) mutex_exit(&kernel.core1.scheduler_lock); 
+    else enable_all_interrupts();
+    return false;
+  }
+  
+  if (task->ipc.priority_bitmap == 0) {
+    if(is_core1) mutex_exit(&kernel.core1.scheduler_lock); 
+    else enable_all_interrupts();
+    return false;
+  }
+  
+  // Get highest priority message
+  int highest_priority = 31 - __builtin_clz(task->ipc.priority_bitmap);
+  uint16_t* head = &task->ipc.priority_lists_head[highest_priority];
+  uint16_t msg_index = *head;
+  
+  if (msg_index == IPC_NULL_MSG) {
+    if(is_core1) mutex_exit(&kernel.core1.scheduler_lock); 
+    else enable_all_interrupts();
+    
+    klog(3, "IPC: Bitmap/queue mismatch!");
+    task->ipc.priority_bitmap &= ~(1U << highest_priority);
+    return false;
+  }
+  
+  mutex_enter_blocking(&kernel.ipc_manager.lock);
+  
+  IPCMessage* msg = &kernel.ipc_manager.message_pool[msg_index];
+  
+  *head = msg->next;
+  if (*head == IPC_NULL_MSG) {
+    task->ipc.priority_bitmap &= ~(1U << highest_priority);
+  }
+  
+  task->ipc.message_count--;
+  
+  memcpy(msg_out, msg, sizeof(IPCMessage));
+  
+  msg->in_use = false;
+  msg->next = IPC_NULL_MSG;
+  kernel.ipc_manager.free_list[++kernel.ipc_manager.free_list_head] = msg_index;
+  
+  kernel.ipc_manager.total_received++;
+  ipc_stats.messages_received++;
+  
+  mutex_exit(&kernel.ipc_manager.lock);
+  
+  if(is_core1) mutex_exit(&kernel.core1.scheduler_lock); 
+  else enable_all_interrupts();
+  
+  return true;
+}
+
+void ipc_maintenance() {
+  mutex_enter_blocking(&kernel.ipc_manager.lock);
+  
+  uint16_t total_in_use = MAX_IPC_MESSAGES - (kernel.ipc_manager.free_list_head + 1);
+  
+  mutex_exit(&kernel.ipc_manager.lock);
+  
+  ipc_stats.avg_queue_depth_global = (ipc_stats.avg_queue_depth_global * 0.95f) +
+                                      (total_in_use * 0.05f);
+  
+  if (total_in_use > ipc_stats.max_queue_depth_global) {
+    ipc_stats.max_queue_depth_global = total_in_use;
+  }
+}
+
+// ============================================================================
+// RTOS PRIMITIVES
