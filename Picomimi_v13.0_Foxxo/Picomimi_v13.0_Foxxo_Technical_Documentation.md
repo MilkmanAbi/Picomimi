@@ -4,6 +4,8 @@
 
 *Made with determination ฅ(•ㅅ•❀)ฅ and love ˗ˋˏ ♡ ˎˊ˗*
 
+Picomimi v13.0 Foxxo serves as a structural foundation and is not yet fully polished or feature-complete.
+
 ---
 
 ## Table of Contents
@@ -133,28 +135,28 @@ Full filesystem integrated into kernel:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    User Applications                         │
-│               (Registered via Application_Register)          │
+│                    User Applications                        │
+│               (Registered via Application_Register)         │
 ├─────────────────────────────────────────────────────────────┤
-│                      UISocket API                            │
+│                      UISocket API                           │
 │     (Focus, IPC, Memory, RTOS primitives, Core1 spawn)      │
 ├─────────────────────────────────────────────────────────────┤
 │   Services    │    Drivers    │    Modules                  │
 │  (shell, fs,  │  (input,      │  (user-defined              │
 │   monitors)   │   display)    │   extensions)               │
 ├─────────────────────────────────────────────────────────────┤
-│                    Kernel Core                               │
-│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐  │
-│  │ Task Mgr │ Scheduler│ Mem Mgr  │   IPC    │   PMFS   │  │
-│  └──────────┴──────────┴──────────┴──────────┴──────────┘  │
+│                    Kernel Core                              │
+│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐   │
+│  │ Task Mgr │ Scheduler│ Mem Mgr  │   IPC    │   PMFS   │   │
+│  └──────────┴──────────┴──────────┴──────────┴──────────┘   │
 ├─────────────────────────────────────────────────────────────┤
-│                    Hardware Abstraction                      │
-│  ┌──────────────────────┬──────────────────────────────┐   │
-│  │      Core 0          │          Core 1              │   │
-│  │   (Main Execution)   │    (Offload/Compute)         │   │
-│  └──────────────────────┴──────────────────────────────┘   │
+│                    Hardware Abstraction                     │
+│  ┌──────────────────────┬──────────────────────────────┐    │
+│  │      Core 0          │          Core 1              │    │
+│  │   (Main Execution)   │    (Offload/Compute)         │    │
+│  └──────────────────────┴──────────────────────────────┘    │
 ├─────────────────────────────────────────────────────────────┤
-│              RP2040 / RP2350 Hardware                        │
+│              RP2040 / RP2350 Hardware                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -179,15 +181,15 @@ Tasks are classified by privilege level:
                     │ UISocket API
             ┌───────▼────────┐
             │   Task Manager │◄────── Scheduler
-            └───────┬────────┘           │
-                    │                    │
+            └───────┬────────┘          │
+                    │                   │
         ┌───────────┼───────────┐       │
         ▼           ▼           ▼       │
    ┌────────┐ ┌──────────┐ ┌────────┐   │
    │  IPC   │ │ Mem Mgr  │ │  PMFS  │   │
    └────────┘ └────┬─────┘ └────────┘   │
-                   │                     │
-                   ▼                     │
+                   │                    │
+                   ▼                    │
               ┌─────────┐               │
               │   OOM   │───────────────┘
               │ Killer  │  (kills tasks to free memory)
@@ -204,7 +206,7 @@ Tasks are classified by privilege level:
 |----------|--------|-------|
 | Raspberry Pi Pico (RP2040) | ✅ Primary | Full support |
 | RP2040-based boards | ✅ Supported | Pin mapping may vary |
-| RP2350 | ✅ Supported | Enhanced performance |
+| RP2350 | ✅ Supported | Extremely Enhanced performance |
 
 ### Resource Requirements
 
@@ -212,7 +214,7 @@ Tasks are classified by privilege level:
 |----------|---------|-------------|
 | Flash | ~200KB | 256KB+ |
 | SRAM | 264KB total | 264KB |
-| Clock Speed | 125 MHz | 225 MHz |
+| Clock Speed | 130 MHz | 225 MHz |
 | SD Card | Optional | FAT16/FAT32 for PMFS |
 
 ### Pin Configuration (Default)
@@ -361,20 +363,20 @@ struct TCB {
        ┌──────────────────────────────────────────┐
        │                                          │
        ▼                                          │
-┌─────────────┐    schedule    ┌─────────────┐   │
-│   READY     │ ─────────────► │   RUNNING   │   │
-└─────────────┘                └──────┬──────┘   │
-       ▲                              │          │
-       │              ┌───────────────┼──────────┤
-       │              │               │          │
+┌─────────────┐    schedule    ┌─────────────┐    │
+│   READY     │ ─────────────► │   RUNNING   │    │
+└─────────────┘                └──────┬──────┘    │
+       ▲                              │           │
+       │              ┌───────────────┼───────────┤
+       │              │               │           │
        │         sleep/block      yield      kill/exit
-       │              │               │          │
-       │              ▼               │          │
-       │       ┌─────────────┐       │          │
-       └────── │   WAITING   │ ◄─────┘          │
-       wake    └─────────────┘                  │
-                                                │
-                      ┌─────────────────────────┘
+       │              │               │           │
+       │              ▼               │           │
+       │       ┌─────────────┐       │            │
+       └────── │   WAITING   │ ◄─────┘            │
+       wake    └─────────────┘                    │
+                                                  │
+                      ┌───────────────────────────┘
                       │
                       ▼
               ┌─────────────┐    reaper    ┌─────────────┐
@@ -466,9 +468,9 @@ Level Mask (32 bits):
         ▼ Find highest set bit
 ┌─────────────────────────────────────────────────────────────────┐
 │ Task Mask for Priority 29:                                      │
-│ ┌───┬───┬───┬───┬───┬───┐                                      │
-│ │ T5│ T4│ T3│ T2│ T1│ T0│  (1 = task is runnable)              │
-│ └───┴───┴───┴───┴───┴───┘                                      │
+│ ┌───┬───┬───┬───┬───┬───┐                                       │
+│ │ T5│ T4│ T3│ T2│ T1│ T0│  (1 = task is runnable)               │
+│ └───┴───┴───┴───┴───┴───┘                                       │
 └─────────────────────────────────────────────────────────────────┘
         │
         ▼ Find first set bit = Next task to run
@@ -2533,7 +2535,7 @@ kout.println((uint32_t)ptr, HEX);
 
 **MIT License**
 
-Copyright (c) 2024-2025 Picomimi Contributors
+Copyright (c) 2024-2025 Abi
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -2543,6 +2545,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ---
 
-*Picomimi MicroOS v13.0 — Built for microcontrollers, designed for reliability*
+*Picomimi MicroOS v13.0 — Built for microcontrollers, designed for hackability*
 
 *Documentation generated from source analysis of `Picomimi_v13_0_Foxxo-Base.ino` (7773 lines)*
