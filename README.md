@@ -197,4 +197,38 @@ MIT License
 
 ---
 
+## 1.1 The One-Sentence Answer
+
+Picomimi-AxisOS is a **complete embedded distribution** for RP2040/RP2350 microcontrollers - not just an RTOS, but an entire operating environment with a kernel, scheduler, memory manager, filesystem, shell, SDK, and GUI engine, all in a single 12,000-line Arduino sketch.
+
+---
+
+## 1.2 What Makes It Different?
+
+Most "operating systems" for microcontrollers are one of two things:
+
+1. **Minimal RTOSes** - Like FreeRTOS. They give you task scheduling and maybe some synchronization primitives. That's it. You build everything else yourself.
+
+2. **Arduino Sketches** - Single-threaded, no resource management, no protection, no abstraction.
+
+Picomimi is neither. It's a **complete embedded distribution**:
+
+| Feature           | FreeRTOS    | Arduino    | Picomimi                                     |
+| ----------------- | ----------- | ---------- | -------------------------------------------- |
+| Task Scheduling   | ✓           | ✗          | ✓                                            |
+| Memory Management | Basic       | None       | Full (kmalloc/kfree, compaction, OOM killer) |
+| Filesystem        | ✗           | SD library | PMFS (journaled, wear-leveling, tmpfs)       |
+| Shell             | ✗           | ✗          | Full interactive shell                       |
+| Power Management  | ✗           | ✗          | 5-level CPU governor with thermal throttling |
+| Resource Tracking | ✗           | ✗          | Hardware ownership, auto-cleanup             |
+| GUI               | ✗           | ✗          | Display engine with focus management         |
+| IPC               | Queues only | ✗          | Messages, signals, shared memory             |
+| Dual-Core         | Manual      | ✗          | Automatic load balancing                     |
+
+Note: Picomimi is not proffessional, not ceritifed, not competitive or in any way comparable to the proffessional project that is FreeRTOS. FreeRTOS is used in this comparision with only the intents of showing ideological differences.
+
+---
+
 **Made with love ฅ(•ㅅ•❀)ฅ**
+
+---
