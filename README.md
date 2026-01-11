@@ -1,7 +1,7 @@
 # **Picomimi MicroOS**
 
 > **Picomimi Project:**
-> Picomimi is **not a professional RTOS**. It’s an **embedded distribution and a full development platform** for RP2040/RP2350 MCUs — a persistent, hackable system where you can run multiple apps, inspect kernel state, and experiment with hardware, all in one unified platform.
+> Picomimi is **not a professional RTOS**. It’s an **embedded distribution (Heavily inspired by UNIX concepts) and a full development platform** for RP2040/RP2350 MCUs — a persistent, hackable system where you can run multiple apps, inspect kernel state, and experiment with hardware, all in one unified platform.
 
 ---
 
