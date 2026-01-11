@@ -1,5 +1,9 @@
 # **Picomimi MicroOS**
+---
 
+> **⚠️ NOTE:** Picomimi is taking a **long pause** for now — it’s not abandoned! Development is happening behind the scenes: new modularisation techniques are in the works to split the 12,000-line Arduino sketch into a sensible structure with `src/`, `includes/`, and `main/`, paving the way for Picomimi to eventually become a **full microOS library** for Arduino IDE. ฅ(•ㅅ•❀)ฅ
+
+---
 > **Picomimi Project:**
 > Picomimi is **not a professional RTOS**. It’s an **embedded distribution (Heavily inspired by UNIX concepts) and a full development platform** for RP2040/RP2350 MCUs — a persistent, hackable system where you can run multiple apps, inspect kernel state, and experiment with hardware, all in one unified platform.
 
