@@ -1,7 +1,7 @@
 # **Picomimi MicroOS**
 ---
 
-> **⚠️ NOTE:** Picomimi is taking a **long pause** for now — it’s not abandoned! Development is happening behind the scenes: new modularisation techniques are in the works to split the 12,000-line Arduino sketch into a sensible structure with `src/`, `includes/`, and `main/`, paving the way for Picomimi to eventually become a **full microOS library** for Arduino IDE. ฅ(•ㅅ•❀)ฅ
+> **⚠️ NOTE:** Picomimi is taking a **long pause** for now — it’s not abandoned! Development is happening behind the scenes: new modularisation techniques are in the works to split the 12,000-line Arduino sketch into a sensible structure with `src/`, `includes/`, and `main/`, paving the way for Picomimi to eventually become a **full microOS library** for Arduino IDE. Picomimi is going full standalone soon, removing dependencies on Arduino IDE specific libraries soon!! Proper structure upcoming!! Proper drivers and HALs in the works! ฅ(•ㅅ•❀)ฅ
 
 ---
 > **Picomimi Project:**
