@@ -17,7 +17,7 @@ The goal is straightforward: **provide a stable, inspectable platform** where de
 
 ---
 
-![Picomimi mascot](assets/Picomimi_Mascot.png)
+![Picomimi mascot](assets/Picomimi_Logo.png)
 *Picomimi ready for development ฅ(•ㅅ•❀)ฅ*
 
 ---
