@@ -6,6 +6,7 @@
 > **Picomimi is graduating.**
 > The era of the 12,000-line monolithic sketch is ending. We are currently migrating to a **professional `pico-sdk` architecture** with proper modularisation (`src/`, `include/`, `drivers/`).
 > While the core is moving to native C/C++ for performance and structure, Picomimi will eventually return to the Arduino ecosystem as a **fully packaged, standalone library**—removing dependencies on Arduino core logic while remaining accessible to everyone. Proper HALs and Drivers are in the works! ฅ(•ㅅ•❀)ฅ
+> Picomimi and AxisOS are heavily tied together; they influence each other heavily. AxisOS and Picomimi are used interchangeably in project READMEs for now and will be addressed soon.
 
 ---
 
