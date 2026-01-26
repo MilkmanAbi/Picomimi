@@ -1,0 +1,356 @@
+// ============================================================================
+// FILE OPERATIONS - ALL IMPLEMENTATIONS
+// ============================================================================
+
+int PMFS::open(const char* path, uint32_t flags, uint32_t task_id) {
+    if (!mounted) return -1;
+    
+    if (is_locked(path, task_id)) {
+        Serial.println("[PMFS] ERROR: File is locked");
+        return -1;
+    }
+    
+    int fd = find_free_handle();
+    if (fd < 0) {
+        Serial.println("[PMFS] ERROR: No free file handles");
+        return -1;
+    }
+    
+    PMFSFileHandle* handle = &file_handles[fd];
+    
+    const char* sd_mode = "r";
+    if (flags & PMFS_MODE_WRITE) {
+        if (flags & PMFS_MODE_APPEND) sd_mode = "a";
+        else if (flags & PMFS_MODE_TRUNCATE) sd_mode = "w";
+        else sd_mode = "r+";
+    }
+    
+    handle->sd_file = SD.open(path, sd_mode);
+    if (!handle->sd_file) {
+        if (flags & PMFS_MODE_CREATE) {
+            handle->sd_file = SD.open(path, FILE_WRITE);
+            if (!handle->sd_file) {
+                return -1;
+            }
+            handle->sd_file.close();
+            handle->sd_file = SD.open(path, sd_mode);
+        }
+        
+        if (!handle->sd_file) {
+            return -1;
+        }
+    }
+    
+    handle->in_use = true;
+    strncpy(handle->path, path, PMFS_MAX_PATH_LENGTH - 1);
+    handle->flags = flags;
+    handle->owner_task_id = task_id;
+    handle->last_access = millis();
+    handle->locked = false;
+    handle->current_position = 0;
+    
+    if (PMFS_ENABLE_JOURNALING && (flags & PMFS_MODE_CREATE)) {
+        journal_add(JOURNAL_OP_CREATE, path);
+    }
+    
+    stats.files_created++;
+    
+    return fd;
+}
+
+PMFSStatus PMFS::close(int fd) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return PMFS_ERROR_INVALID_PARAM;
+    
+    flush(fd);
+    
+    if (handle->sd_file) {
+        handle->sd_file.close();
+    }
+    
+    if (handle->locked) {
+        release_lock(handle->path);
+    }
+    
+    memset(handle, 0, sizeof(PMFSFileHandle));
+    
+    return PMFS_OK;
+}
+
+int PMFS::read(int fd, uint8_t* buffer, uint32_t size) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle || !buffer) return -1;
+    
+    int bytes_read = handle->sd_file.read(buffer, size);
+    
+    if (bytes_read > 0) {
+        stats.bytes_read += bytes_read;
+        handle->last_access = millis();
+        handle->current_position += bytes_read;
+    }
+    
+    return bytes_read;
+}
+
+int PMFS::write(int fd, const uint8_t* data, uint32_t size) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle || !data) return -1;
+    
+    if (!(handle->flags & (PMFS_MODE_WRITE | PMFS_MODE_APPEND))) {
+        Serial.println("[PMFS] ERROR: File not opened for writing");
+        return -1;
+    }
+    
+    int written = 0;
+    
+    if (cache_enabled && size <= PMFS_WRITE_CACHE_SIZE) {
+        PMFSStatus status = cache_write(handle->path, data, size);
+        if (status == PMFS_OK) {
+            written = size;
+            stats.cache_hits++;
+        } else {
+            stats.cache_misses++;
+        }
+    }
+    
+    if (written == 0) {
+        written = handle->sd_file.write(data, size);
+    }
+    
+    if (written > 0) {
+        stats.bytes_written += written;
+        metadata.total_writes++;
+        handle->last_access = millis();
+        handle->current_position += written;
+        
+        if (PMFS_ENABLE_JOURNALING) {
+            journal_add(JOURNAL_OP_WRITE, handle->path);
+        }
+    }
+    
+    return written;
+}
+
+// IMPLEMENTED: File seek
+PMFSStatus PMFS::seek(int fd, uint32_t position) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return PMFS_ERROR_INVALID_PARAM;
+    
+    if (!handle->sd_file.seek(position)) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    handle->current_position = position;
+    return PMFS_OK;
+}
+
+// IMPLEMENTED: File tell
+uint32_t PMFS::tell(int fd) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return 0;
+    
+    return handle->current_position;
+}
+
+// IMPLEMENTED: File size
+uint32_t PMFS::size(int fd) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return 0;
+    
+    return handle->sd_file.size();
+}
+
+// IMPLEMENTED: EOF check
+bool PMFS::eof(int fd) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return true;
+    
+    return handle->current_position >= handle->sd_file.size();
+}
+
+PMFSStatus PMFS::flush(int fd) {
+    PMFSFileHandle* handle = get_handle(fd);
+    if (!handle) return PMFS_ERROR_INVALID_PARAM;
+    
+    if (cache_enabled && strcmp(write_cache.path, handle->path) == 0) {
+        cache_flush();
+    }
+    
+    if (handle->sd_file) {
+        handle->sd_file.flush();
+    }
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::remove(const char* path) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    if (is_locked(path, 0)) {
+        return PMFS_ERROR_FILE_LOCKED;
+    }
+    
+    if (PMFS_ENABLE_JOURNALING) {
+        journal_add(JOURNAL_OP_DELETE, path);
+    }
+    
+    if (!SD.remove(path)) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    stats.files_deleted++;
+    
+    return PMFS_OK;
+}
+
+// IMPLEMENTED: File rename
+PMFSStatus PMFS::rename(const char* old_path, const char* new_path) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    if (!SD.exists(old_path)) {
+        return PMFS_ERROR_FILE_NOT_FOUND;
+    }
+    
+    if (SD.exists(new_path)) {
+        return PMFS_ERROR_ALREADY_EXISTS;
+    }
+    
+    if (is_locked(old_path, 0)) {
+        return PMFS_ERROR_FILE_LOCKED;
+    }
+    
+    if (PMFS_ENABLE_JOURNALING) {
+        journal_add(JOURNAL_OP_RENAME, old_path, new_path);
+    }
+    
+    // SD.h doesn't support rename, so we copy+delete
+    File src = SD.open(old_path, FILE_READ);
+    if (!src) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    File dst = SD.open(new_path, FILE_WRITE);
+    if (!dst) {
+        src.close();
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    uint8_t buffer[512];
+    while (src.available()) {
+        int bytes_read = src.read(buffer, sizeof(buffer));
+        dst.write(buffer, bytes_read);
+    }
+    
+    src.close();
+    dst.close();
+    
+    SD.remove(old_path);
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::mkdir(const char* path) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    if (SD.exists(path)) {
+        return PMFS_ERROR_ALREADY_EXISTS;
+    }
+    
+    if (PMFS_ENABLE_JOURNALING) {
+        journal_add(JOURNAL_OP_MKDIR, path);
+    }
+    
+    if (!SD.mkdir(path)) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    return PMFS_OK;
+}
+
+// IMPLEMENTED: Directory removal with recursive option
+PMFSStatus PMFS::rmdir(const char* path, bool recursive) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    if (!SD.exists(path)) {
+        return PMFS_ERROR_FILE_NOT_FOUND;
+    }
+    
+    File dir = SD.open(path);
+    if (!dir || !dir.isDirectory()) {
+        if (dir) dir.close();
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    dir.close();
+    
+    if (recursive) {
+        return recursive_delete(path);
+    } else {
+        if (!SD.rmdir(path)) {
+            return PMFS_ERROR_IO_FAILURE;
+        }
+    }
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::recursive_delete(const char* path) {
+    File dir = SD.open(path);
+    if (!dir) {
+        return PMFS_ERROR_FILE_NOT_FOUND;
+    }
+    
+    if (!dir.isDirectory()) {
+        dir.close();
+        return SD.remove(path) ? PMFS_OK : PMFS_ERROR_IO_FAILURE;
+    }
+    
+    File file = dir.openNextFile();
+    while (file) {
+        char filepath[PMFS_MAX_PATH_LENGTH];
+        snprintf(filepath, sizeof(filepath), "%s/%s", path, file.name());
+        
+        if (file.isDirectory()) {
+            file.close();
+            recursive_delete(filepath);
+        } else {
+            file.close();
+            SD.remove(filepath);
+        }
+        
+        file = dir.openNextFile();
+    }
+    
+    dir.close();
+    
+    return SD.rmdir(path) ? PMFS_OK : PMFS_ERROR_IO_FAILURE;
+}
+
+bool PMFS::exists(const char* path) {
+    return SD.exists(path);
+}
+
+bool PMFS::is_file(const char* path) {
+    File f = SD.open(path);
+    if (!f) return false;
+    bool is_file = !f.isDirectory();
+    f.close();
+    return is_file;
+}
+
+bool PMFS::is_dir(const char* path) {
+    File f = SD.open(path);
+    if (!f) return false;
+    bool is_directory = f.isDirectory();
+    f.close();
+    return is_directory;
+}
+
+uint32_t PMFS::file_size(const char* path) {
+    File f = SD.open(path, FILE_READ);
+    if (!f) return 0;
+    uint32_t s = f.size();
+    f.close();
+    return s;
+}
+
+// ============================================================================

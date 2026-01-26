@@ -1,0 +1,1114 @@
+    return;
+  }
+  
+  while (Serial.available()) {
+    int c = Serial.read();
+    
+    if (c == '\r' || c == '\n') {
+      kout.println();
+      
+      char temp_cmd_buffer[128];
+      strncpy(temp_cmd_buffer, cmd_buffer, sizeof(temp_cmd_buffer) - 1);
+      temp_cmd_buffer[sizeof(temp_cmd_buffer) - 1] = '\0';
+      
+      shell_execute(temp_cmd_buffer);
+      
+      cmd_pos = 0;
+      memset(cmd_buffer, 0, sizeof(cmd_buffer));
+      
+      if (!kernel.shell_alive) {
+        task_sleep(10000);
+        return;
+      }
+      
+      shell_prompt();
+    } else if (c == '\b' || c == 127) {
+      if (cmd_pos > 0) {
+        cmd_pos--;
+        cmd_buffer[cmd_pos] = '\0';
+        Serial.write('\b');
+        Serial.write(' ');
+        Serial.write('\b');
+      }
+    } else if (cmd_pos < sizeof(cmd_buffer) - 1) {
+      cmd_buffer[cmd_pos++] = c;
+      Serial.write(c);
+    }
+  }
+  
+  task_sleep(10);
+}
+
+void shell_deinit() {
+  kout.println("[SHELL] DEINIT");
+  kernel.shell_alive = false;
+  cmd_pos = 0;
+  memset(cmd_buffer, 0, sizeof(cmd_buffer));
+}
+
+void input_task(void* arg) {
+  static unsigned long last_onoff_press = 0;
+  
+  if (gpio_read_fast(BTN_ONOFF) && (millis() - last_onoff_press > 250)) {
+    last_onoff_press = millis();
+    
+    if (gui_app_count > 0) {
+      current_gui_focus_index = (current_gui_focus_index + 1) % gui_app_count;
+      uint32_t new_focus_task_id = gui_app_task_ids[current_gui_focus_index];
+      kernel.gui_focus_task_id = new_focus_task_id;
+      
+      kout.print("\n[Focus] Switched to task ");
+      kout.println(new_focus_task_id);
+      shell_prompt();
+    } else {
+      kernel.gui_focus_task_id = -1;
+      current_gui_focus_index = -1;
+    }
+  }
+  
+  task_sleep(20);
+}
+
+void cpu_monitor_task(void* arg) {
+  if (!kernel.cpumon_alive) {
+    task_sleep(10000);
+    return;
+  }
+  
+  task_sleep(5000);
+  
+  if (kernel.cpu_usage > 95.0f) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "CPUMON: High CPU Load! %.1f%%", kernel.cpu_usage);
+    klog(2, buf);
+  }
+  
+  if (kernel.core1_initialized && kernel.core1.cpu_usage > 95.0f) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "CPUMON: High CPU Load (Core 1)! %.1f%%", 
+             kernel.core1.cpu_usage);
+    klog(2, buf);
+  }
+}
+
+void cpumon_deinit() {
+  kout.println("[CPUMON] DEINIT");
+  kernel.cpumon_alive = false;
+}
+
+void temp_monitor_task(void* arg) {
+  if (!kernel.tempmon_alive) {
+    task_sleep(10000);
+    return;
+  }
+  
+  kernel.temperature = read_temperature();
+  
+  if (kernel.temperature > 70.0f) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "TEMPMON: High Temperature! %.1f C", 
+             kernel.temperature);
+    klog(2, buf);
+  }
+  
+  task_sleep(2000);
+}
+
+void tempmon_deinit() {
+  kout.println("[TEMPMON] DEINIT");
+  kernel.tempmon_alive = false;
+}
+
+void fs_task(void* arg) {
+  if (!kernel.fs_alive) {
+    task_sleep(10000);
+    return;
+  }
+  
+  task_sleep(30000);
+  
+  uint32_t flushed_files = 0;
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
+    if (kernel.fs_open_files[i].open && kernel.fs_open_files[i].write_mode) {
+      kernel.fs_open_files[i].handle.flush();
+      flushed_files++;
+    }
+  }
+  
+  mutex_exit(&kernel.fs_lock);
+  
+  if (flushed_files > 0) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "FS: Flushed %d open write handles", flushed_files);
+    klog(0, buf);
+  }
+}
+
+void fs_deinit() {
+  kout.println("[FS] DEINIT");
+  
+  for (int i = 0; i < FS_MAX_OPEN_FILES; i++) {
+    if (kernel.fs_open_files[i].open) {
+      kernel.fs_open_files[i].handle.close();
+      kernel.fs_open_files[i].open = false;
+    }
+  }
+  
+  fs_unmount();
+  kernel.fs_alive = false;
+}
+
+// Continued with shell commands in next part...
+// Continued with shell commands in next part...
+
+// ============================================================================
+// SHELL UTILITIES
+// ============================================================================
+
+void shell_prompt() {
+  if (kernel.root_mode) {
+    kout.print("Picomimi:");
+    kout.print(shell_cwd);
+    kout.print("# ");
+  } else {
+    kout.print("Picomimi:");
+    kout.print(shell_cwd);
+    kout.print("~> ");
+  }
+}
+
+static void fs_normalize_path(const char* base, const char* relative, char* out, size_t out_size) {
+  char temp_path[256];
+  char temp_relative[128];
+  
+  strncpy(temp_relative, relative, sizeof(temp_relative)-1);
+  temp_relative[sizeof(temp_relative)-1] = '\0';
+  
+  if (temp_relative[0] == '/') {
+    strncpy(temp_path, temp_relative, sizeof(temp_path) - 1);
+  } else {
+    if (strcmp(base, "/") == 0) {
+      snprintf(temp_path, sizeof(temp_path), "/%s", temp_relative);
+    } else {
+      snprintf(temp_path, sizeof(temp_path), "%s/%s", base, temp_relative);
+    }
+  }
+  
+  temp_path[sizeof(temp_path)-1] = '\0';
+  
+  char* segments[32];
+  int s_idx = 0;
+  char* token = strtok(temp_path, "/");
+  
+  while(token != NULL) {
+    if (strcmp(token, ".") == 0) {
+      // Skip
+    } else if (strcmp(token, "..") == 0) {
+      if (s_idx > 0) {
+        s_idx--;
+      }
+    } else {
+      if (s_idx < 32) {
+        segments[s_idx++] = token;
+      }
+    }
+    token = strtok(NULL, "/");
+  }
+  
+  if (s_idx == 0) {
+    strncpy(out, "/", out_size);
+  } else {
+    out[0] = '\0';
+    for (int i = 0; i < s_idx; i++) {
+      if (strlen(out) + strlen(segments[i]) + 2 > out_size) break;
+      strcat(out, "/");
+      strcat(out, segments[i]);
+    }
+  }
+}
+
+void shell_execute(char* cmd) {
+  if (strlen(cmd) == 0) return;
+  
+  if (strcmp(cmd, "help") == 0) cmd_help();
+  else if (strcmp(cmd, "ps") == 0) cmd_ps();
+  else if (strncmp(cmd, "taskinfo ", 9) == 0) cmd_taskinfo(cmd + 9);
+  else if (strcmp(cmd, "ipcstat") == 0) cmd_ipcstat();
+  else if (strcmp(cmd, "schedstat") == 0) cmd_schedstat();
+  else if (strcmp(cmd, "oomstat") == 0) cmd_oomstat();
+  else if (strcmp(cmd, "rtos_stat") == 0) cmd_rtos_stat();
+  else if (strcmp(cmd, "dmesg") == 0) cmd_dmesg();
+  else if (strcmp(cmd, "uptime") == 0) cmd_uptime();
+  else if (strcmp(cmd, "temp") == 0) cmd_temp();
+  else if (strcmp(cmd, "root") == 0) cmd_root();
+  else if (strcmp(cmd, "reboot") == 0) cmd_reboot();
+  else if (strncmp(cmd, "kill ", 5) == 0) cmd_kill(cmd + 5);
+  else if (strncmp(cmd, "ls", 2) == 0) {
+    char path[128];
+    if (strlen(cmd) <= 3) {
+      fs_list(shell_cwd);
+    } else if (cmd[2] == ' ') {
+      fs_normalize_path(shell_cwd, cmd + 3, path, sizeof(path));
+      fs_list(path);
+    } else {
+      kout.print("Unknown: "); kout.println(cmd);
+    }
+  }
+  else if (strcmp(cmd, "stat") == 0) fs_stats();
+  else if (strncmp(cmd, "cat ", 4) == 0) {
+    char path[128];
+    fs_normalize_path(shell_cwd, cmd + 4, path, sizeof(path));
+    fs_cat(path);
+  }
+  else if (strncmp(cmd, "write ", 6) == 0) cmd_write(cmd + 6);
+  else if (strcmp(cmd, "logls") == 0) cmd_logls();
+  else if (strcmp(cmd, "format") == 0) cmd_format_sd();
+  else if (strncmp(cmd, "mkdir ", 6) == 0) {
+    char path[128];
+    fs_normalize_path(shell_cwd, cmd + 6, path, sizeof(path));
+    cmd_mkdir(path);
+  }
+  else if (strncmp(cmd, "rm ", 3) == 0) {
+    char path[128];
+    fs_normalize_path(shell_cwd, cmd + 3, path, sizeof(path));
+    cmd_rm(path);
+  }
+  else if (strncmp(cmd, "touch ", 6) == 0) {
+    char path[128];
+    fs_normalize_path(shell_cwd, cmd + 6, path, sizeof(path));
+    cmd_touch(path);
+  }
+  else if (strncmp(cmd, "logtail", 7) == 0) cmd_logtail(cmd + 7);
+  else if (strncmp(cmd, "cd ", 3) == 0) cmd_cd(cmd + 3);
+  else if (strcmp(cmd, "cd") == 0) cmd_cd("/");
+  else if (strcmp(cmd, "app block list") == 0) cmd_app_block_list();
+  else if (strncmp(cmd, "app block unlock ", 17) == 0) cmd_app_block_unlock(cmd + 17);
+  // PMFS commands
+  else if (strcmp(cmd, "tree") == 0) {
+    if (kernel.fs_mounted) {
+      kout.println("\n=== PMFS Directory Tree ===");
+      pmfs.print_tree();
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else if (strcmp(cmd, "pmfs") == 0) {
+    if (kernel.fs_mounted) {
+      pmfs.print_stats();
+      pmfs.print_metadata();
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else if (strcmp(cmd, "tmpfs") == 0) {
+    if (kernel.fs_mounted) {
+      kout.println("\n=== tmpfs (RAM Disk) ===");
+      kout.print("Available: ");
+      kout.print(pmfs.tmpfs_available());
+      kout.print(" / ");
+      kout.print(PMFS_TMPFS_SIZE);
+      kout.println(" bytes");
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else if (strcmp(cmd, "bank") == 0) {
+    if (kernel.fs_mounted) {
+      kout.println("\n=== System Banks ===");
+      kout.print("Active bank: ");
+      kout.println(pmfs.get_active_bank() == PMFS_BANK_A ? "A" : "B");
+      kout.print("Backup bank: ");
+      kout.println(pmfs.get_backup_bank() == PMFS_BANK_A ? "A" : "B");
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else if (strcmp(cmd, "fsck") == 0) {
+    if (kernel.fs_mounted) {
+      kout.println("[PMFS] Running filesystem check...");
+      PMFSStatus status = pmfs.fsck(true);
+      if (status == PMFS_OK) {
+        kout.println("[PMFS] Filesystem OK");
+      } else {
+        kout.print("[PMFS] fsck result: ");
+        kout.println(pmfs.status_to_string(status));
+      }
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else if (strcmp(cmd, "defrag") == 0) {
+    if (kernel.fs_mounted) {
+      kout.println("[PMFS] Running defragmentation...");
+      pmfs.defragment();
+      kout.println("[PMFS] Defragmentation complete");
+    } else {
+      kout.println("[FS] Not mounted");
+    }
+  }
+  else {
+    // Try launching registered app
+    for (uint32_t i = 0; i < app_registry_count; i++) {
+      if (strcmp(cmd, app_registry[i].name) == 0) {
+        app_registry[i].spawn_func();
+        return;
+      }
+    }
+    
+    kout.print("Unknown: ");
+    kout.println(cmd);
+  }
+}
+
+// ============================================================================
+// SHELL COMMANDS
+// ============================================================================
+
+void cmd_help() {
+  kout.println("\n=== Picomimi Kernel v13 Commands ===");
+  kout.println("\n--- System ---");
+  kout.println(" help       - Show this help");
+  kout.println(" ps         - List all tasks");
+  kout.println(" taskinfo <id> - Task details");
+  kout.println(" listapps   - List applications");
+  kout.println(" top        - System monitor");
+  kout.println(" mem        - Memory stats");
+  kout.println(" memmap     - Memory map");
+  kout.println(" compact    - Compact memory");
+  kout.println(" dmesg      - System log");
+  kout.println(" uptime     - System uptime");
+  kout.println(" temp       - CPU temperature");
+  kout.println("\n--- Statistics ---");
+  kout.println(" ipcstat    - IPC statistics");
+  kout.println(" schedstat  - Scheduler stats");
+  kout.println(" oomstat    - OOM statistics");
+  kout.println(" rtos_stat  - RTOS primitives");
+  kout.println("\n--- Filesystem ---");
+  kout.println(" ls [path]  - List files");
+  kout.println(" cat <file> - Read file");
+  kout.println(" write <file> <text> - Append to file");
+  kout.println(" touch <file> - Create file");
+  kout.println(" mkdir <dir> - Create directory");
+  kout.println(" rm <path>  - Remove file/dir");
+  kout.println(" cd <path>  - Change directory");
+  kout.println(" stat       - FS statistics");
+  kout.println(" logls      - List log files");
+  kout.println(" logtail [N] - Show log tail");
+  kout.println(" format     - [ROOT] Format SD");
+  kout.println("\n--- PMFS ---");
+  kout.println(" tree       - Directory tree");
+  kout.println(" pmfs       - PMFS statistics");
+  kout.println(" tmpfs      - tmpfs (RAM disk) status");
+  kout.println(" bank       - System bank info (A/B)");
+  kout.println(" fsck       - Filesystem check");
+  kout.println(" defrag     - Defragment filesystem");
+  kout.println("\n--- Task Management ---");
+  kout.println(" kill <id>  - Kill task");
+  kout.println(" root       - Toggle root mode");
+  kout.println(" reboot     - Restart system");
+  kout.println("\n--- Applications ---");
+  for (uint32_t i = 0; i < app_registry_count; i++) {
+    kout.print(" ");
+    kout.println(app_registry[i].name);
+  }
+}
+
+void cmd_ps() {
+  kout.println("\n=== System Tasks ===");
+  kout.println("ID  Core Name                 Type    State     Pri Mem(KB) CPU(ms)");
+  kout.println("--- ---- -------------------- ------- --------- --- ------- -------");
+  
+  const char* state_str[] = {"READY", "RUN", "WAIT", "SUSP", "DEAD", "ZOMBI"};
+  const char* type_str[] = {"KERNEL", "DRIVER", "SERVIC", "MODULE", "APP"};
+  
+  for (uint32_t i = 0; i < kernel.task_count; i++) {
+    TCB* task = &kernel.tasks[i];
+    if (task->id == 0 && task->entry == NULL) continue;
+    
+    uint8_t type_idx = 0;
+    if (task->task_type == TASK_TYPE_DRIVER) type_idx = 1;
+    else if (task->task_type == TASK_TYPE_SERVICE) type_idx = 2;
+    else if (task->task_type == TASK_TYPE_MODULE) type_idx = 3;
+    else if (task->task_type == TASK_TYPE_APPLICATION) type_idx = 4;
+    
+    char buf[100];
+    snprintf(buf, sizeof(buf), "%-3d C0   %-20s %-7s %-9s %3d %7d %7d",
+             task->id, task->name, type_str[type_idx],
+             task->mem_blocked ? "BLCKD" : state_str[task->state],
+             task->priority, task->mem_used / 1024, task->cpu_time);
+    kout.println(buf);
+  }
+  
+  if (kernel.core1_initialized) {
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+    for (uint32_t i = 0; i < kernel.core1.task_count; i++) {
+      TCB* task = &kernel.core1.tasks[i];
+      
+      char buf[100];
+      snprintf(buf, sizeof(buf), "%-3d C1   %-20s %-7s %-9s %3d %7d %7d",
+               task->id, task->name, "APP",
+               task->mem_blocked ? "BLCKD" : state_str[task->state],
+               task->priority, task->mem_used / 1024, task->cpu_time);
+      kout.println(buf);
+    }
+    mutex_exit(&kernel.core1.scheduler_lock);
+  }
+  
+  kout.println("\n--- Summary ---");
+  kout.print("Core 0: ");
+  kout.print(kernel.task_count - kernel.zombie_tasks);
+  kout.print(" tasks (CPU: ");
+  kout.print(kernel.cpu_usage, 1);
+  kout.println("%)");
+  
+  if (kernel.core1_initialized) {
+    kout.print("Core 1: ");
+    kout.print(kernel.core1.task_count);
+    kout.print(" tasks (CPU: ");
+    kout.print(kernel.core1.cpu_usage, 1);
+    kout.println("%)");
+  }
+}
+
+void cmd_taskinfo(char* arg) {
+  uint32_t id = atoi(arg);
+  
+  TCB task_copy;
+  bool task_found = false;
+  bool is_core1 = (id >= 1000);
+  
+  if (is_core1) {
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  }
+  
+  TCB* task_ptr = ipc_get_tcb_by_id_unsafe(id);
+  if (task_ptr) {
+    memcpy(&task_copy, task_ptr, sizeof(TCB));
+    task_found = true;
+  }
+  
+  if (is_core1) {
+    mutex_exit(&kernel.core1.scheduler_lock);
+  }
+  
+  if (!task_found) {
+    kout.println("Invalid task ID");
+    return;
+  }
+  
+  kout.println("\n=== Task Information ===");
+  kout.print("ID: "); kout.println(task_copy.id);
+  kout.print("Name: "); kout.println(task_copy.name);
+  kout.print("Core: "); kout.println(task_copy.running_on_core);
+  kout.print("Priority: "); kout.println(task_copy.priority);
+  kout.print("State: ");
+  
+  const char* state_str[] = {"READY", "RUNNING", "WAITING", "SUSPENDED", "TERMINATED", "ZOMBIE"};
+  kout.println(task_copy.mem_blocked ? "BLOCKED" : state_str[task_copy.state]);
+  
+  kout.print("\nMemory Used: ");
+  kout.print(task_copy.mem_used / 1024);
+  kout.println(" KB");
+  
+  kout.print("Memory Peak: ");
+  kout.print(task_copy.mem_peak / 1024);
+  kout.println(" KB");
+  
+  kout.print("CPU Time: ");
+  kout.print(task_copy.cpu_time);
+  kout.println(" ms");
+  
+  kout.print("CPU Usage: ");
+  kout.print(task_copy.sched_info.cpu_usage_percent, 1);
+  kout.println("%");
+  
+  if (task_copy.is_cpu_abuser) {
+    kout.println("⚠ CPU ABUSER DETECTED");
+  }
+  
+  kout.print("Context Switches: ");
+  kout.println(task_copy.context_switches);
+  
+  kout.print("IPC Messages: ");
+  kout.println(task_copy.ipc.message_count);
+  
+  if (task_copy.description) {
+    kout.println("\n--- Description ---");
+    kout.println(task_copy.description);
+  }
+}
+
+void cmd_ipcstat() {
+  kout.println("\n=== IPC Statistics ===");
+  
+  uint16_t total_in_use = MAX_IPC_MESSAGES - (kernel.ipc_manager.free_list_head + 1);
+  
+  kout.print("Message Pool: ");
+  kout.print(total_in_use);
+  kout.print("/");
+  kout.println(MAX_IPC_MESSAGES);
+  
+  kout.println("\n--- Lifetime Stats ---");
+  kout.print("Sent: "); kout.println(kernel.ipc_manager.total_sent);
+  kout.print("Received: "); kout.println(kernel.ipc_manager.total_received);
+  kout.print("Broadcasts: "); kout.println(ipc_stats.broadcasts_sent);
+  kout.print("Dropped (Pool): "); kout.println(ipc_stats.messages_dropped_pool_full);
+  kout.print("Dropped (Task): "); kout.println(ipc_stats.messages_dropped_task_full);
+}
+
+void cmd_schedstat() {
+  kout.println("\n=== Scheduler Statistics ===");
+  kout.println("Algorithm: O(1) Priority Bitmap");
+  kout.println("Mode: Preemptive + Aging + Idle Injection");
+  
+  kout.println("\n--- Core 0 ---");
+  kout.print("Context Switches: ");
+  kout.println(core0_sched.switches);
+  kout.print("Preemptions: ");
+  kout.println(core0_sched.preemptions);
+  kout.print("CPU Load: ");
+  kout.print(core0_sched.cpu_load, 1);
+  kout.println("%");
+  kout.print("Idle Injections: ");
+  kout.println(core0_sched.idle_injections);
+  
+  if (kernel.core1_initialized) {
+    kout.println("\n--- Core 1 ---");
+    kout.print("Context Switches: ");
+    kout.println(core1_sched.switches);
+    kout.print("CPU Load: ");
+    kout.print(kernel.core1.cpu_usage, 1);
+    kout.println("%");
+  }
+}
+
+void cmd_oomstat() {
+  kout.println("\n=== OOM Statistics ===");
+  kout.print("Prevention Success: ");
+  kout.println(oom_stats.prevention_count);
+  kout.print("Graceful Requests: ");
+  kout.println(oom_stats.requests_sent);
+  kout.print("Voluntary Releases: ");
+  kout.println(oom_stats.voluntary_releases);
+  kout.print("Forced Kills: ");
+  kout.println(oom_stats.forced_kills);
+  kout.print("Abusive Kills: ");
+  kout.println(oom_stats.abusive_kills);
+  kout.print("Total Reclaimed: ");
+  kout.print(oom_stats.total_bytes_reclaimed / 1024);
+  kout.println(" KB");
+}
+
+void cmd_rtos_stat() {
+  kout.println("\n=== RTOS Primitives ===");
+  kout.println("\n--- Mutexes ---");
+  
+  for(int i=0; i < MAX_KERNEL_MUTEXES; i++) {
+    if (kernel.kernel_mutexes[i].locked) {
+      kout.print("Mutex ");
+      kout.print(i);
+      kout.print(": LOCKED by ");
+      kout.println(kernel.kernel_mutexes[i].owner_id);
+    }
+  }
+  
+  kout.println("\n--- Semaphores ---");
+  for(int i=0; i < MAX_SEMAPHORES; i++) {
+    if (kernel.kernel_semaphores[i].max_count > 0) {
+      kout.print("Sem ");
+      kout.print(i);
+      kout.print(": ");
+      kout.print(kernel.kernel_semaphores[i].count);
+      kout.print("/");
+      kout.println(kernel.kernel_semaphores[i].max_count);
+    }
+  }
+}
+
+
+void cmd_listapps() {
+  kout.println("\n=== Registered Applications ===");
+  if (app_registry_count == 0) {
+    kout.println("(None)");
+    return;
+  }
+  
+  for (uint32_t i = 0; i < app_registry_count; i++) {
+    kout.print(i + 1);
+    kout.print(". ");
+    kout.println(app_registry[i].name);
+  }
+}
+
+void cmd_top() {
+  kout.println("\n=== System Monitor ===");
+  kout.print("Uptime: ");
+  kout.print((uint32_t)(kernel.uptime_ms / 1000));
+  kout.println(" s");
+  kout.print("CPU (C0): ");
+  kout.print(kernel.cpu_usage, 1);
+  kout.println("%");
+  
+  if (kernel.core1_initialized) {
+    kout.print("CPU (C1): ");
+    kout.print(kernel.core1.cpu_usage, 1);
+    kout.println("%");
+  }
+  
+  kout.print("Temp: ");
+  kout.print(kernel.temperature, 1);
+  kout.println("C");
+  kout.print("Memory: ");
+  kout.print(get_used_memory() / 1024);
+  kout.print("/");
+  kout.print((HEAP_SIZE - KERNEL_RESERVE) / 1024);
+  kout.println(" KB");
+  kout.print("Tasks: ");
+  kout.println(kernel.task_count - kernel.zombie_tasks);
+  kout.print("OOM Kills: ");
+  kout.println(oom_stats.forced_kills);
+}
+
+void cmd_mem() {
+  kout.println("\n=== Memory Statistics ===");
+  kout.print("Total Heap: ");
+  kout.print(HEAP_SIZE / 1024);
+  kout.println(" KB");
+  kout.print("Kernel Reserve: ");
+  kout.print(KERNEL_RESERVE / 1024);
+  kout.println(" KB");
+  kout.print("App Heap: ");
+  kout.print((HEAP_SIZE - KERNEL_RESERVE) / 1024);
+  kout.println(" KB");
+  kout.print("Used: ");
+  kout.print(get_used_memory() / 1024);
+  kout.println(" KB");
+  kout.print("Free: ");
+  kout.print(kernel.total_free_mem / 1024);
+  kout.println(" KB");
+  kout.print("Largest Free Block: ");
+  kout.print(kernel.largest_free_block / 1024);
+  kout.println(" KB");
+  kout.print("Fragmentation: ");
+  kout.print(kernel.fragmentation_pct);
+  kout.println("%");
+  
+  if (is_memory_critical()) {
+    kout.println("⚠ CRITICAL MEMORY LEVEL!");
+  } else if (is_memory_warning()) {
+    kout.println("⚠ Low memory warning");
+  }
+}
+
+void cmd_memmap() {
+  kout.println("\n=== Memory Map (First 20 blocks) ===");
+  kout.println("Address    Size     Owner  Free");
+  kout.println("---------- -------- ------ ----");
+  
+  uint32_t display_count = (kernel.mem_block_count < 20) ? kernel.mem_block_count : 20;
+  
+  for (uint32_t i = 0; i < display_count; i++) {
+    MemBlock* block = &kernel.mem_blocks[i];
+    
+    char buf[64];
+    snprintf(buf, sizeof(buf), "0x%08lx %8d %6d %-4s",
+             (uint32_t)block->addr, block->size, block->owner_id,
+             block->free ? "Y" : "N");
+    kout.println(buf);
+  }
+  
+  if (kernel.mem_block_count > display_count) {
+    kout.print("... (");
+    kout.print(kernel.mem_block_count - display_count);
+    kout.println(" more)");
+  }
+}
+
+void cmd_dmesg() {
+  kout.println("\n=== System Log ===");
+  if (kernel.log_count == 0) {
+    kout.println("(Empty)");
+    return;
+  }
+  
+  mutex_enter_blocking(&kernel.log_lock);
+  
+  uint32_t start = kernel.log_count < MAX_LOG_ENTRIES ? 0 : kernel.log_head;
+  uint32_t count = kernel.log_count < MAX_LOG_ENTRIES ? kernel.log_count : MAX_LOG_ENTRIES;
+  
+  for (uint32_t i = 0; i < count; i++) {
+    uint32_t idx = (start + i) % MAX_LOG_ENTRIES;
+    LogEntry* entry = &kernel.log[idx];
+    
+    char buf[80];
+    snprintf(buf, sizeof(buf), "[%6lu.%03lu] [%d] %s",
+             (uint32_t)(entry->timestamp / 1000),
+             (uint32_t)(entry->timestamp % 1000),
+             entry->level,
+             entry->message);
+    kout.println(buf);
+  }
+  
+  mutex_exit(&kernel.log_lock);
+}
+
+void cmd_uptime() {
+  uint64_t uptime_s = kernel.uptime_ms / 1000;
+  uint32_t days = uptime_s / 86400;
+  uint32_t hours = (uptime_s % 86400) / 3600;
+  uint32_t minutes = (uptime_s % 3600) / 60;
+  uint32_t seconds = uptime_s % 60;
+  
+  kout.print("Uptime: ");
+  if (days > 0) {
+    kout.print(days);
+    kout.print(" days, ");
+  }
+  kout.print(hours);
+  kout.print(":");
+  if (minutes < 10) kout.print("0");
+  kout.print(minutes);
+  kout.print(":");
+  if (seconds < 10) kout.print("0");
+  kout.println(seconds);
+}
+
+void cmd_temp() {
+  kout.print("CPU Temperature: ");
+  kout.print(kernel.temperature, 1);
+  kout.println(" C");
+}
+
+void cmd_root() {
+  kernel.root_mode = !kernel.root_mode;
+  
+  if (kernel.root_mode) {
+    kout.println("Root mode: ON (dangerous!)");
+  } else {
+    kout.println("Root mode: OFF");
+  }
+}
+
+void cmd_reboot() {
+  kout.println("\nRebooting...");
+  Serial.flush();
+  delay(500);
+  watchdog_enable(1, 1);
+  while(1);
+}
+
+void cmd_kill(char* arg) {
+  if (!kernel.root_mode) {
+    kout.println("Error: Root mode required");
+    return;
+  }
+  
+  uint32_t id = atoi(arg);
+  
+  if (id < 1000) {
+    if (id >= kernel.task_count) {
+      kout.println("Error: Invalid task ID");
+      return;
+    }
+    brutal_task_kill(id);
+  } else {
+    kout.println("Error: Core 1 task kill not supported from shell");
+  }
+}
+
+void cmd_cd(const char* arg) {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  char new_path[128];
+  fs_normalize_path(shell_cwd, arg, new_path, sizeof(new_path));
+  
+  File f = SD.open(new_path);
+  if (f) {
+    if (f.isDirectory()) {
+      strncpy(shell_cwd, new_path, sizeof(shell_cwd) - 1);
+    } else {
+      kout.print("Error: Not a directory: ");
+      kout.println(arg);
+    }
+    f.close();
+  } else {
+    kout.print("Error: No such file or directory: ");
+    kout.println(arg);
+  }
+}
+
+void cmd_write(char* arg) {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  char* filename_arg = strtok(arg, " ");
+  if (filename_arg == NULL) {
+    kout.println("Usage: write <filename> <content...>");
+    return;
+  }
+  
+  char* content = strtok(NULL, "");
+  if (content == NULL) {
+    kout.println("Usage: write <filename> <content...>");
+    return;
+  }
+  
+  char path[128];
+  fs_normalize_path(shell_cwd, filename_arg, path, sizeof(path));
+  
+  kout.print("Appending to ");
+  kout.print(path);
+  kout.println("...");
+  
+  if (fs_write_new(path, content, true)) {
+    kout.println("Success");
+  } else {
+    kout.println("Failed");
+  }
+}
+
+void cmd_logls() {
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  File root = SD.open("/");
+  if (!root) {
+    kout.println("[FS] Failed to open root");
+    return;
+  }
+  
+  kout.println("\n=== FS Log Files ===");
+  
+  File file = root.openNextFile();
+  bool found = false;
+  
+  while (file) {
+    if (!file.isDirectory()) {
+      String name_str = file.name();
+      
+      if (name_str.endsWith(".log") || name_str.endsWith(".txt") || 
+          name_str.equalsIgnoreCase(FS_LOG_FILE)) {
+        kout.print(file.name());
+        kout.print(" (");
+        kout.print((int)file.size());
+        kout.println(" bytes)");
+        found = true;
+      }
+    }
+    file.close();
+    file = root.openNextFile();
+  }
+  
+  if (!found) {
+    kout.println("(No log files found)");
+  }
+  
+  root.close();
+}
+
+void cmd_format_sd() {
+  if (!kernel.root_mode) {
+    kout.println("Error: Root mode required");
+    return;
+  }
+  
+  kout.println("\n*** FORMATTING SD CARD ***");
+  kout.println("This will delete ALL files from root");
+  kout.println("Waiting 5 seconds...");
+  
+  uint64_t start = get_time_ms();
+  while (get_time_ms() - start < 5000) {
+    shell_task(NULL);
+    task_sleep(20);
+  }
+  
+  kout.println("Formatting...");
+  
+  mutex_enter_blocking(&kernel.fs_lock);
+  
+  File root = SD.open("/");
+  if (!root) {
+    kout.println("[FS] Failed to open root");
+    mutex_exit(&kernel.fs_lock);
+    return;
+  }
+  
+  uint32_t files_deleted = 0;
+  uint32_t dirs_deleted = 0;
+  
+  File file = root.openNextFile();
+  
+  while (file) {
+    const char* fname = file.name();
+    
+    // Skip protected files
+    if (strcmp(fname, FS_LOG_FILE + 1) == 0 || strcmp(fname, "PANIC.LOG") == 0) {
+      kout.print(" > Skipping: "); 
+      kout.println(fname);
+      file.close();
+      file = root.openNextFile();
+      continue;
+    }
+    
+    kout.print(" > Deleting: "); 
+    kout.println(fname);
+    
+    if (file.isDirectory()) {
+      if (SD.rmdir(fname)) {
+        dirs_deleted++;
+      }
+    } else {
+      if (SD.remove(fname)) {
+        files_deleted++;
+      }
+    }
+    
+    file.close();
+    file = root.openNextFile();
+  }
+  
+  root.close();
+  mutex_exit(&kernel.fs_lock);
+  
+  kout.print("Done. Deleted ");
+  kout.print(files_deleted);
+  kout.print(" files, ");
+  kout.print(dirs_deleted);
+  kout.println(" dirs");
+}
+
+void cmd_mkdir(char* arg) {
+  if (strlen(arg) == 0) {
+    kout.println("Usage: mkdir <path>");
+    return;
+  }
+  
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  if (fs_mkdir(arg)) {
+    kout.print("Created: ");
+    kout.println(arg);
+  } else {
+    kout.print("Failed: ");
+    kout.println(arg);
+  }
+}
+
+void cmd_rm(char* arg) {
+  if (strlen(arg) == 0) {
+    kout.println("Usage: rm <path>");
+    return;
+  }
+  
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  if (fs_remove(arg)) {
+    kout.print("Removed: ");
+    kout.println(arg);
+  } else {
+    kout.print("Failed: ");
+    kout.println(arg);
+  }
+}
+
+void cmd_touch(char* arg) {
+  if (strlen(arg) == 0) {
+    kout.println("Usage: touch <path>");
+    return;
+  }
+  
+  if (!kernel.fs_mounted) {
+    kout.println("[FS] Not mounted");
+    return;
+  }
+  
+  int fd = fs_open(arg, true);
+  if (fd >= 0) {
+    fs_close(fd);
+    kout.print("Touched: ");
+    kout.println(arg);
+  } else {
+    kout.print("Failed: ");
+    kout.println(arg);
+  }
+}
+
+void cmd_logtail(char* arg) {
+  uint32_t lines = 10;
+  
+  if (strlen(arg) > 0) {
+    lines = atoi(arg);
+  }
+  
+  if (lines == 0) lines = 10;
+  if (lines > 100) lines = 100;
+  
+  fs_logtail(lines);
+}
+
+void cmd_app_block_list() {
+  kout.println("\n=== Blocked Applications ===");
+  
+  if (g_blocked_app_count == 0) {
+    kout.println("(None)");
+    return;
+  }
+  
+  for (uint32_t i = 0; i < g_blocked_app_count; i++) {
+    kout.println(g_blocked_app_names[i]);
+  }
+}
+
+void cmd_app_block_unlock(char* arg) {
+  if (!kernel.root_mode) {
+    kout.println("Error: Root mode required");
+    return;
+  }
+  
+  int32_t found_idx = -1;
+  
+  for (uint32_t i = 0; i < g_blocked_app_count; i++) {
+    if (strcmp(arg, g_blocked_app_names[i]) == 0) {
+      found_idx = i;
+      break;
+    }
+  }
+  
+  if (found_idx != -1) {
+    kout.print("Unblocking app: ");
+    kout.println(arg);
+    
+    for (uint32_t i = (uint32_t)found_idx; i < g_blocked_app_count - 1; i++) {
+      strncpy(g_blocked_app_names[i], g_blocked_app_names[i+1], TASK_NAME_LEN);
+    }
+    
+    g_blocked_app_count--;
+    
+    for(uint32_t i = 0; i < kernel.task_count; i++) {
+      if (strcmp(kernel.tasks[i].name, arg) == 0) {
+        kernel.tasks[i].mem_blocked = false;
+      }
+    }
+  } else {
+    kout.print("App not in block list: ");
+    kout.println(arg);
+  }
+}
+
+// ============================================================================

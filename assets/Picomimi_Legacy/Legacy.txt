@@ -1,0 +1,55 @@
+Picomimi MicroOS Legacy History (v6 – v12)
+-------------------------------------------
+
+A historical record of Picomimi MicroOS development from late 2023 to early 2025.  
+This folder preserves old versions, experiments, and lessons learned before v13.0-STABLE.
+
+v6 (late 2023)
+  - Initial scheduler with basic memory management
+  - Purely experimental, started when bored
+  - Minimal functionality, kernel-only prototypes
+
+v7 / v7.x (2024)
+  - Introduced SD card storage
+  - Basic logging system
+  - RAM-based virtual filesystem (VFS)
+  - Early experiments with modularity and persistence
+
+v8 / v8.x (2025)
+  - Consolidation of v7 features
+  - Created a system for apps to hook into the kernel
+  - Replaced messy sketches glued to kernel with modular app hooks
+  - Foundation for real MicroOS architecture
+
+v9 / v9.x / v9.x.y
+  - Distinction of classes in code
+  - Slightly improved filesystem
+  - Removed fixed screen code
+  - Removed built-in apps from kernel
+  - Debates on whether to keep apps and screen in the kernel or externalized
+
+v10
+  - Headless MicroOS
+  - Apps can define their own screens
+  - Clean separation of kernel vs apps
+  - Focus on modularity and user-defined interfaces
+
+v11
+  - Introduced RTOS primitives
+  - More robust scheduling and multitasking capabilities
+  - Kernel starting to act like a proper microOS
+
+v12
+  - Attempted kernel self-protection from misbehaving apps (experimental, mostly failed)
+  - Removed RAM-based VFS
+  - Inspired PMFS design
+  - Set groundwork for v13 tmpfs under PMFS
+  - Still lacked integrated PMFS or proper transactional filesystem
+
+Notes:
+  - Versions v6–v12 represent the evolution from small experiments to a functional modular microOS.
+  - v12 was the last pre-PMFS attempt at self-protection and advanced kernel features.
+  - PMFS (v13) consolidates the lessons learned from these experiments.
+  - This folder exists for reference, rollback, or curiosity about the development journey.
+
+Made with determination ฅ(•ㅅ•❀)ฅ and love ˗ˋˏ ♡ ˎˊ˗

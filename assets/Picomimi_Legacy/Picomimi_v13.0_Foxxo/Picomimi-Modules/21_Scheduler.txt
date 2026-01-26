@@ -1,0 +1,311 @@
+// SCHEDULER
+// ============================================================================
+
+void scheduler_init_core0() {
+  memset(&core0_sched, 0, sizeof(core0_sched));
+  mutex_init(&core0_sched.lock);
+  
+  core0_sched.idle_task = 0;
+  core0_sched.current_task = 0;
+  core0_sched.last_aging = get_time_ms();
+  
+  kout.println("[SCHED] Core0 initialized (Preemptive O(1) bitmap)");
+}
+
+void scheduler_init_core1() {
+  memset(&core1_sched, 0, sizeof(core1_sched));
+  mutex_init(&core1_sched.lock);
+  
+  core1_sched.last_aging = get_time_ms();
+  
+  kout.println("[SCHED] Core1 initialized (O(1) bitmap)");
+}
+
+void sched_check_preemption() {
+  if (kernel.preemption_pending) return;
+  
+  uint32_t task_id;
+  int highest_prio = sched_bitmap_find_highest(&core0_sched.runnable, &task_id);
+  
+  if (highest_prio > kernel.tasks[kernel.current_task].priority) {
+    kernel.preemption_pending = true;
+  }
+}
+
+void sched_update_task_priority(TCB* task) {
+  if (task->running_on_core != 0) return;
+  
+  disable_all_interrupts();
+  
+  // Remove from old priority
+  for(int p = 0; p < SCHED_NUM_PRIORITY_LEVELS; p++) {
+    if (core0_sched.runnable.task_masks[p] & (1U << task->id)) {
+      sched_bitmap_remove(&core0_sched.runnable, task->id, p);
+      break;
+    }
+  }
+  
+  // Add to new priority
+  if (task->state == TASK_READY) {
+    sched_bitmap_add(&core0_sched.runnable, task->id, task->priority);
+  }
+  
+  enable_all_interrupts();
+}
+
+static void sched_age_tasks(CoreScheduler* sched, TCB* tasks, uint32_t task_count) {
+  uint64_t now = get_time_ms();
+  if (now - sched->last_aging < SCHED_AGING_INTERVAL_MS) return;
+  
+  sched->last_aging = now;
+  
+  for (uint32_t i = 0; i < task_count; i++) {
+    TCB* task = &tasks[i];
+    
+    if (task->state != TASK_READY) continue;
+    if (task->priority >= SCHED_RT_THRESHOLD) continue;
+    if (task->original_priority != 0) continue;
+    
+    uint64_t wait_time = now - task->sched_info.last_run;
+    
+    if (wait_time > 1000 && task->priority < SCHED_NUM_PRIORITY_LEVELS - 1) {
+      uint8_t old_prio = task->priority;
+      task->priority++;
+      
+      disable_all_interrupts();
+      sched_bitmap_remove(&sched->runnable, i, old_prio);
+      sched_bitmap_add(&sched->runnable, i, task->priority);
+      enable_all_interrupts();
+    }
+  }
+}
+
+static bool sched_should_inject_idle(CoreScheduler* sched) {
+  if (sched->cpu_load < SCHED_IDLE_INJECTION_THRESHOLD) {
+    sched->idle_injection_active = false;
+    return false;
+  }
+  
+  static uint32_t idle_counter = 0;
+  if (++idle_counter >= 10) {
+    idle_counter = 0;
+    sched->idle_injections++;
+    return true;
+  }
+  
+  return false;
+}
+
+static void sched_update_load(CoreScheduler* sched, uint64_t idle_time_ms, uint64_t total_time_ms) {
+  if (total_time_ms == 0) return;
+  
+  float instant_load = 100.0f * (1.0f - ((float)idle_time_ms / (float)total_time_ms));
+  if (instant_load < 0) instant_load = 0;
+  if (instant_load > 100) instant_load = 100;
+  
+  sched->cpu_load_instant = instant_load;
+  sched->cpu_load = (sched->cpu_load * 0.9f) + (instant_load * 0.1f);
+}
+
+uint32_t sched_select_next_core0() {
+  disable_all_interrupts();
+  
+  if (sched_should_inject_idle(&core0_sched)) {
+    enable_all_interrupts();
+    return core0_sched.idle_task;
+  }
+  
+  uint32_t task_id;
+  int priority = sched_bitmap_find_highest(&core0_sched.runnable, &task_id);
+  
+  if (priority < 0) {
+    enable_all_interrupts();
+    return core0_sched.idle_task;
+  }
+  
+  if (task_id >= kernel.task_count) {
+    enable_all_interrupts();
+    return core0_sched.idle_task;
+  }
+  
+  TCB* task = &kernel.tasks[task_id];
+  
+  if (task->state != TASK_READY && task->state != TASK_RUNNING) {
+    sched_bitmap_remove(&core0_sched.runnable, task_id, priority);
+    enable_all_interrupts();
+    return sched_select_next_core0();
+  }
+  
+  core0_sched.current_task = task_id;
+  core0_sched.current_priority = priority;
+  
+  enable_all_interrupts();
+  return task_id;
+}
+
+uint32_t sched_select_next_core1() {
+  mutex_enter_blocking(&core1_sched.lock);
+  
+  uint32_t task_id;
+  int priority = sched_bitmap_find_highest(&core1_sched.runnable, &task_id);
+  
+  if (priority < 0) {
+    mutex_exit(&core1_sched.lock);
+    return 0xFFFFFFFF;
+  }
+  
+  mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  
+  if (task_id >= kernel.core1.task_count) {
+    mutex_exit(&kernel.core1.scheduler_lock);
+    mutex_exit(&core1_sched.lock);
+    return 0xFFFFFFFF;
+  }
+  
+  TCB* task = &kernel.core1.tasks[task_id];
+  
+  if (task->state != TASK_READY && task->state != TASK_RUNNING) {
+    mutex_exit(&kernel.core1.scheduler_lock);
+    sched_bitmap_remove(&core1_sched.runnable, task_id, priority);
+    mutex_exit(&core1_sched.lock);
+    return sched_select_next_core1();
+  }
+  
+  mutex_exit(&kernel.core1.scheduler_lock);
+  
+  core1_sched.current_task = task_id;
+  core1_sched.current_priority = priority;
+  
+  mutex_exit(&core1_sched.lock);
+  return task_id;
+}
+
+void scheduler_tick() {
+  // Update velocity check timer
+  uint64_t now_ms_for_velocity = get_time_ms();
+  if (now_ms_for_velocity - kernel.last_velocity_check_ms > 1000) {
+    kernel.last_velocity_check_ms = now_ms_for_velocity;
+    
+    for (uint32_t i = 0; i < kernel.task_count; i++) {
+      if (kernel.tasks[i].alloc_velocity > 0 && 
+          (now_ms_for_velocity - kernel.tasks[i].last_alloc_time > 1000)) {
+        kernel.tasks[i].alloc_velocity = 0;
+      }
+    }
+  }
+  
+  uint64_t now = get_time_ms();
+  kernel.uptime_ms = now;
+  
+  if (kernel.task_count == 0 || kernel.task_count > MAX_TASKS) return;
+  
+  // Wake up waiting tasks
+  for (uint32_t i = 0; i < kernel.task_count; i++) {
+    TCB* task = &kernel.tasks[i];
+    
+    if (task->state == TASK_WAITING && task->wake_time != 0 && now >= task->wake_time) {
+      task_wake(i);
+    }
+    
+    // Check max runtime
+    if (task->max_runtime > 0 && task->state != TASK_TERMINATED && task->state != TASK_ZOMBIE) {
+      if ((now - task->start_time) > task->max_runtime) {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "TIMEOUT: %s", task->name);
+        klog(1, buf);
+        brutal_task_kill(task->id);
+      }
+    }
+    
+    // Respawn tasks
+    if (task->state == TASK_TERMINATED && (task->flags & TASK_FLAG_RESPAWN)) {
+      if (task->task_type == TASK_TYPE_KERNEL) continue;
+      
+      if (now - task->last_respawn > 5000) {
+        task->state = TASK_READY;
+        task->start_time = now;
+        task->last_respawn = now;
+        task->respawn_count++;
+        task->mem_used = 0;
+        task->cpu_time = 0;
+        
+        task_init_ipc_queue(task);
+        
+        if (task->callbacks && task->callbacks->init) {
+          task->callbacks->init(task->id);
+        }
+        
+        disable_all_interrupts();
+        if (task->affinity == CORE_0 || task->affinity == CORE_ANY) {
+          sched_bitmap_add(&core0_sched.runnable, i, task->priority);
+        }
+        enable_all_interrupts();
+      }
+    }
+  }
+  
+  // Age tasks
+  sched_age_tasks(&core0_sched, kernel.tasks, kernel.task_count);
+  
+  // Update CPU load
+  static uint64_t last_load_update = 0;
+  static uint32_t last_total_task_cpu_time = 0;
+  
+  if (now - last_load_update >= 1000) {
+    uint32_t total_task_cpu_time = 0;
+    
+    for (uint32_t i = 0; i < kernel.task_count; i++) {
+      total_task_cpu_time += kernel.tasks[i].cpu_time;
+    }
+    
+    uint32_t busy_time_ms = total_task_cpu_time - last_total_task_cpu_time;
+    uint32_t total_time_ms = now - last_load_update;
+    
+    if (total_time_ms == 0) total_time_ms = 1;
+    if (busy_time_ms > total_time_ms) busy_time_ms = total_time_ms;
+    
+    uint32_t idle_time_ms = total_time_ms - busy_time_ms;
+    
+    sched_update_load(&core0_sched, idle_time_ms, total_time_ms);
+    kernel.cpu_usage = core0_sched.cpu_load;
+    
+    last_load_update = now;
+    last_total_task_cpu_time = total_task_cpu_time;
+    
+    // Check for CPU overload
+    if (kernel.cpu_usage > CPU_CRITICAL_THRESHOLD) {
+      handle_cpu_overload();
+    }
+  }
+  
+  // IPC maintenance
+  static uint32_t ipc_counter = 0;
+  if (++ipc_counter >= 1000) {
+    ipc_maintenance();
+    ipc_counter = 0;
+  }
+}
+
+void task_yield() {
+  uint32_t prev_task_id = kernel.current_task;
+  uint64_t now = get_time_ms();
+  
+  if (prev_task_id < kernel.task_count) {
+    TCB* prev_task = &kernel.tasks[prev_task_id];
+    prev_task->sched_info.last_run = now;
+    prev_task->last_run = now;
+  }
+  
+  uint32_t next_task = sched_select_next_core0();
+  
+  if (next_task < kernel.task_count) {
+    kernel.current_task = next_task;
+    kernel.total_context_switches++;
+    kernel.tasks[next_task].context_switches++;
+    kernel.tasks[next_task].sched_info.last_run = now;
+    core0_sched.switches++;
+  }
+}
+
+// ============================================================================
+// TASK MANAGEMENT

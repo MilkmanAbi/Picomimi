@@ -1,0 +1,94 @@
+// ============================================================================
+// UI / GUI FUNCTIONS
+// ============================================================================
+
+bool k_request_gui_focus(uint32_t task_id) {
+  uint32_t irq_state = save_and_disable_interrupts();
+  
+  kernel.gui_focus_task_id = task_id;
+  current_gui_focus_index = -1;
+  
+  for (uint32_t i = 0; i < gui_app_count; i++) {
+    if (gui_app_task_ids[i] == task_id) {
+      current_gui_focus_index = i;
+      break;
+    }
+  }
+// Lowkey, need a twink cutie bruh  MilkmanAbi
+  restore_interrupts(irq_state);
+  return true;
+}
+
+void k_release_gui_focus(uint32_t task_id) {
+  uint32_t irq_state = save_and_disable_interrupts();
+  
+  if (kernel.gui_focus_task_id == (int32_t)task_id) {
+    kernel.gui_focus_task_id = -1;
+    current_gui_focus_index = -1;
+  }
+  
+  restore_interrupts(irq_state);
+}
+
+void k_register_stdout_target(void (*write_char_fn)(char)) {
+  kernel.app_write_char = write_char_fn;
+}
+
+float k_get_core0_usage() {
+  return kernel.cpu_usage;
+}
+
+float k_get_core1_usage() {
+  return kernel.core1.cpu_usage;
+}
+
+uint32_t k_get_task_memory_api(uint32_t task_id) {
+  return get_task_memory(task_id);
+}
+
+void k_hint_memory_pressure(uint32_t task_id) {
+  kout.print("[MEM] Task ");
+  kout.print(task_id);
+  kout.println(" reports memory pressure");
+  
+  mem_compact();
+  calculate_fragmentation();
+  
+  char buf[64];
+  snprintf(buf, sizeof(buf), "MEM: Pressure hint from task %d", task_id);
+  klog(1, buf);
+}
+
+void k_register_gui_app(UISocket* socket_api) {
+  if (!socket_api) return;
+  
+  uint32_t task_id_to_register = 0;
+  
+  if (get_core_num() == 0) {
+    task_id_to_register = kernel.current_task;
+  } else {
+    task_id_to_register = kernel.core1.tasks[core1_sched.current_task].id;
+  }
+  
+  uint32_t irq_state = save_and_disable_interrupts();
+  
+  if (gui_app_count < MAX_GUI_APPS) {
+    bool found = false;
+    
+    for(uint32_t i=0; i < gui_app_count; i++) {
+      if(gui_app_task_ids[i] == task_id_to_register) {
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
+      gui_app_task_ids[gui_app_count++] = task_id_to_register;
+    }
+  }
+  
+  restore_interrupts(irq_state);
+  
+  // Set up socket API
+  socket_api->request_focus = k_request_gui_focus;
+  socket_api->release_focus = k_release_gui_focus;

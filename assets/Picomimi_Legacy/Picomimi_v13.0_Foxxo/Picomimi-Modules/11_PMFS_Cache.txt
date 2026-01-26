@@ -1,0 +1,42 @@
+// ============================================================================
+// WRITE CACHE
+// ============================================================================
+
+PMFSStatus PMFS::cache_write(const char* path, const uint8_t* data, uint32_t size) {
+    if (size > PMFS_WRITE_CACHE_SIZE) {
+        return PMFS_ERROR_INVALID_PARAM;
+    }
+    
+    if (write_cache.dirty && strcmp(write_cache.path, path) != 0) {
+        cache_flush();
+    }
+    
+    strncpy(write_cache.path, path, PMFS_MAX_PATH_LENGTH - 1);
+    memcpy(write_cache.data, data, size);
+    write_cache.size = size;
+    write_cache.last_access = millis();
+    write_cache.dirty = true;
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::cache_flush() {
+    if (!write_cache.dirty) {
+        return PMFS_OK;
+    }
+    
+    File f = SD.open(write_cache.path, FILE_WRITE);
+    if (!f) {
+        Serial.println("[PMFS] ERROR: Cache flush failed");
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    f.write(write_cache.data, write_cache.size);
+    f.close();
+    
+    write_cache.dirty = false;
+    
+    return PMFS_OK;
+}
+
+// ============================================================================

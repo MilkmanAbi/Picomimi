@@ -1,0 +1,180 @@
+{
+  "version": "1.0",
+  "description": "MIAU assembly configuration for Picomimi v13.0 Foxxo-Base - Reassembles 32 modules into monolithic .ino file",
+  "header": [
+    "/*\n",
+    " * Picomimi MicroOS v13.0-BASE\n",
+    " * Assembled by MIAU ฅ(•ㅅ•❀)ฅ\n",
+    " * \n",
+    " * Toolchain:\n",
+    " *   - Assembled with MIAU.py (Monolithic INO Aggregator Utility)\n",
+    " *   - Split with MRRP.py (Monolithic Repartition & Refactor Program)\n",
+    " *   - Fixed with NYAA.py (Normalize Your Architecture Automatically)\n",
+    " *   - Reviewed with MROW.py (Mend & Review Our Weirdness)\n",
+    " * \n",
+    " * Made with determination ฅ(•ㅅ•❀)ฅ\n",
+    " */\n\n"
+  ],
+  "modules": [
+    {
+      "name": "Header and Includes",
+      "filename": "00_Header.txt",
+      "description": "System includes, defines, and configuration constants"
+    },
+    {
+      "name": "PMFS Enums and Structs",
+      "filename": "01_PMFS_Types.txt",
+      "description": "PMFS type definitions and data structures"
+    },
+    {
+      "name": "PMFS Class Definition",
+      "filename": "02_PMFS_Class.txt",
+      "description": "PMFS class declaration with all methods"
+    },
+    {
+      "name": "PMFS Implementation",
+      "filename": "03_PMFS_Impl.txt",
+      "description": "PMFS core implementation stubs"
+    },
+    {
+      "name": "PMFS Initialization",
+      "filename": "04_PMFS_Init.txt",
+      "description": "PMFS initialization and mounting logic"
+    },
+    {
+      "name": "PMFS Metadata Management",
+      "filename": "05_PMFS_Metadata.txt",
+      "description": "PMFS metadata loading and saving"
+    },
+    {
+      "name": "PMFS Journaling",
+      "filename": "06_PMFS_Journal.txt",
+      "description": "PMFS transactional journaling system"
+    },
+    {
+      "name": "PMFS File Operations",
+      "filename": "07_PMFS_FileOps.txt",
+      "description": "PMFS file I/O operations (open, read, write, close)"
+    },
+    {
+      "name": "PMFS tmpfs",
+      "filename": "08_PMFS_tmpfs.txt",
+      "description": "PMFS RAM disk implementation"
+    },
+    {
+      "name": "PMFS System Banks",
+      "filename": "09_PMFS_Banks.txt",
+      "description": "PMFS dual system bank management (A/B OTA)"
+    },
+    {
+      "name": "PMFS Logging",
+      "filename": "10_PMFS_Logging.txt",
+      "description": "PMFS system and user logging functions"
+    },
+    {
+      "name": "PMFS Write Cache",
+      "filename": "11_PMFS_Cache.txt",
+      "description": "PMFS write caching for performance"
+    },
+    {
+      "name": "PMFS File Locking",
+      "filename": "12_PMFS_Locking.txt",
+      "description": "PMFS file locking mechanism"
+    },
+    {
+      "name": "PMFS Statistics",
+      "filename": "13_PMFS_Stats.txt",
+      "description": "PMFS statistics and monitoring"
+    },
+    {
+      "name": "PMFS Maintenance",
+      "filename": "14_PMFS_Maintenance.txt",
+      "description": "PMFS fsck, defragmentation, and garbage collection"
+    },
+    {
+      "name": "PMFS Utilities",
+      "filename": "15_PMFS_Utils.txt",
+      "description": "PMFS helper functions and utilities"
+    },
+    {
+      "name": "Memory Integrity",
+      "filename": "16_Memory_Integrity.txt",
+      "description": "Kernel memory integrity checking and verification"
+    },
+    {
+      "name": "Kernel Panic and Watchdog",
+      "filename": "17_Panic_Watchdog.txt",
+      "description": "Kernel panic handler and watchdog timer"
+    },
+    {
+      "name": "Memory Management",
+      "filename": "18_Memory.txt",
+      "description": "kmalloc, kfree, and memory allocator core"
+    },
+    {
+      "name": "OOM System",
+      "filename": "19_OOM.txt",
+      "description": "Out-of-memory detection and instant killing"
+    },
+    {
+      "name": "CPU Monitoring",
+      "filename": "20_CPU_Monitor.txt",
+      "description": "CPU usage monitoring and protection"
+    },
+    {
+      "name": "Scheduler",
+      "filename": "21_Scheduler.txt",
+      "description": "Task scheduler with priority and core affinity"
+    },
+    {
+      "name": "Task Management",
+      "filename": "22_Tasks.txt",
+      "description": "Task creation, destruction, and lifecycle"
+    },
+    {
+      "name": "Core1",
+      "filename": "23_Core1.txt",
+      "description": "Core1 initialization and main loop"
+    },
+    {
+      "name": "IPC System",
+      "filename": "24_IPC.txt",
+      "description": "Inter-process communication primitives"
+    },
+    {
+      "name": "RTOS Primitives",
+      "filename": "25_RTOS.txt",
+      "description": "Mutexes, semaphores, and event flags"
+    },
+    {
+      "name": "Temperature",
+      "filename": "26_Temperature.txt",
+      "description": "RP2040 temperature sensor interface"
+    },
+    {
+      "name": "Logging",
+      "filename": "27_Logging.txt",
+      "description": "Kernel logging system"
+    },
+    {
+      "name": "Filesystem Wrappers",
+      "filename": "28_FS_Wrappers.txt",
+      "description": "High-level filesystem wrapper functions"
+    },
+    {
+      "name": "Shell Commands",
+      "filename": "29_Shell.txt",
+      "description": "Interactive shell commands (ps, ls, cat, etc.)"
+    },
+    {
+      "name": "Kernel API",
+      "filename": "30_Kernel_API.txt",
+      "description": "Public kernel API for applications"
+    },
+    {
+      "name": "Setup and Loop",
+      "filename": "31_Setup_Loop.txt",
+      "description": "Arduino setup() and loop() functions"
+    }
+  ]
+}

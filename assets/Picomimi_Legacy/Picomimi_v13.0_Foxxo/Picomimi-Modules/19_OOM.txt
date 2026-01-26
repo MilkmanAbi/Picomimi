@@ -1,0 +1,346 @@
+// OOM SYSTEM
+// ============================================================================
+
+void k_register_oom_handler(uint32_t task_id, oom_callback_t callback) {
+  for (int i = 0; i < MAX_OOM_HANDLERS; i++) {
+    if (!oom_handlers[i].active) {
+      oom_handlers[i].task_id = task_id;
+      oom_handlers[i].callback = callback;
+      oom_handlers[i].active = true;
+      
+      kout.print("[OOM] Handler registered for task ");
+      kout.println(task_id);
+      return;
+    }
+  }
+  
+  kout.println("[OOM] Handler registry full");
+}
+
+void k_unregister_oom_handler(uint32_t task_id) {
+  for (int i = 0; i < MAX_OOM_HANDLERS; i++) {
+    if (oom_handlers[i].active && oom_handlers[i].task_id == task_id) {
+      oom_handlers[i].active = false;
+      return;
+    }
+  }
+}
+
+static oom_callback_t oom_get_handler(uint32_t task_id) {
+  for (int i = 0; i < MAX_OOM_HANDLERS; i++) {
+    if (oom_handlers[i].active && oom_handlers[i].task_id == task_id) {
+      return oom_handlers[i].callback;
+    }
+  }
+  return NULL;
+}
+
+bool oom_prevent(size_t bytes_needed) {
+  kout.println("[OOM] Prevention: Attempting memory recovery...");
+  kout.println("[OOM] Step 1: Memory compaction");
+  
+  mem_compact();
+  calculate_fragmentation();
+  
+  if (kernel.largest_free_block >= bytes_needed) {
+    kout.print("[OOM] Success! Found ");
+    kout.print(kernel.largest_free_block / 1024);
+    kout.println(" KB free block");
+    oom_stats.prevention_count++;
+    return true;
+  }
+  
+  kout.println("[OOM] Prevention failed - proceeding to victim selection");
+  return false;
+}
+
+static int32_t oom_calculate_victim_score(TCB* task, uint32_t mem_used) {
+  int32_t score = 0;
+  
+  // Memory usage score
+  score += (mem_used / 1024);
+  
+  // OOM priority penalty
+  score += (task->oom_priority * 100);
+  
+  // Idle time bonus
+  uint64_t idle_time = get_time_ms() - task->last_run;
+  if (idle_time > 5000) score += 200;
+  else if (idle_time > 1000) score += 50;
+  
+  // Handler bonus (prefer keeping tasks with handlers)
+  oom_callback_t handler = oom_get_handler(task->id);
+  if (handler) score -= 50;
+  
+  // CPU abuser penalty
+  if (task->is_cpu_abuser) score += 150;
+  
+  // Critical task protection
+  if (task->flags & TASK_FLAG_CRITICAL) score = -10000;
+  if (task->task_type != TASK_TYPE_APPLICATION) score = -10000;
+  
+  return score;
+}
+
+OOMVictim oom_select_victim(size_t bytes_needed) {
+  OOMVictim victim = {0};
+  victim.task_id = 0xFFFFFFFF;
+  victim.score = -10000;
+  
+  kout.println("[OOM] Selecting victim...");
+  
+  // Check Core 0 tasks
+  for (uint32_t i = 1; i < kernel.task_count; i++) {
+    TCB* task = &kernel.tasks[i];
+    
+    if (task->state == TASK_TERMINATED || task->state == TASK_ZOMBIE || task->mem_blocked) 
+      continue;
+    if (task->task_type != TASK_TYPE_APPLICATION) continue;
+    if (task->flags & TASK_FLAG_CRITICAL) continue;
+    
+    uint32_t task_mem = get_task_memory(task->id);
+    if (task_mem == 0) continue;
+    
+    int32_t score = oom_calculate_victim_score(task, task_mem);
+    
+    if (score > victim.score) {
+      victim.task_id = task->id;
+      victim.memory_used = task_mem;
+      victim.oom_priority = task->oom_priority;
+      victim.score = score;
+      victim.has_handler = (oom_get_handler(task->id) != NULL);
+    }
+  }
+  
+  // Check Core 1 tasks
+  mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  for (uint32_t i = 0; i < kernel.core1.task_count; i++) {
+    TCB* task = &kernel.core1.tasks[i];
+    
+    if (task->state == TASK_TERMINATED || task->state == TASK_ZOMBIE || task->mem_blocked) 
+      continue;
+    if (task->task_type != TASK_TYPE_APPLICATION) continue;
+    if (task->flags & TASK_FLAG_CRITICAL) continue;
+    
+    uint32_t task_mem = 10 * 1024; // Estimate for Core 1 tasks
+    
+    int32_t score = oom_calculate_victim_score(task, task_mem);
+    
+    if (score > victim.score) {
+      victim.task_id = task->id;
+      victim.memory_used = task_mem;
+      victim.oom_priority = task->oom_priority;
+      victim.score = score;
+      victim.has_handler = (oom_get_handler(task->id) != NULL);
+    }
+  }
+  mutex_exit(&kernel.core1.scheduler_lock);
+  
+  return victim;
+}
+
+bool oom_request_cleanup(OOMVictim* victim, size_t bytes_needed) {
+  if (victim->task_id == 0xFFFFFFFF || !victim->has_handler) {
+    return false;
+  }
+  
+  TCB* task = NULL;
+  bool is_core1 = (victim->task_id >= 1000);
+  
+  if(is_core1) mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  
+  task = ipc_get_tcb_by_id_unsafe(victim->task_id);
+  if (!task) {
+    if(is_core1) mutex_exit(&kernel.core1.scheduler_lock);
+    return false;
+  }
+  
+  kout.print("[OOM] Requesting graceful cleanup from '");
+  kout.print(task->name);
+  kout.print("' (");
+  kout.print(victim->memory_used / 1024);
+  kout.println(" KB)");
+  
+  oom_current_request.allocating_task_id = kernel.current_task;
+  oom_current_request.target_task_id = victim->task_id;
+  oom_current_request.request_time = get_time_ms();
+  oom_current_request.bytes_requested = bytes_needed;
+  oom_current_request.request_sent = true;
+  oom_current_request.task_complied = false;
+  
+  task->flags |= TASK_FLAG_OOM_CLEANUP_REQUESTED;
+  task->oom_bytes_requested = bytes_needed;
+  
+  if(is_core1) mutex_exit(&kernel.core1.scheduler_lock);
+  
+  oom_stats.requests_sent++;
+  return true;
+}
+
+void k_oom_cleanup_done(uint32_t task_id, uint32_t bytes_freed) {
+  if (!oom_current_request.request_sent) return;
+  if (oom_current_request.target_task_id != task_id) return;
+  
+  TCB* task = NULL;
+  bool is_core1 = (task_id >= 1000);
+  
+  if(is_core1) mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  
+  task = ipc_get_tcb_by_id_unsafe(task_id);
+  if (!task) {
+    if(is_core1) mutex_exit(&kernel.core1.scheduler_lock);
+    return;
+  }
+  
+  kout.print("[OOM] Task '");
+  kout.print(task->name);
+  kout.print("' freed ");
+  kout.print(bytes_freed / 1024);
+  kout.println(" KB voluntarily");
+  
+  oom_current_request.task_complied = true;
+  oom_stats.voluntary_releases++;
+  oom_stats.total_bytes_reclaimed += bytes_freed;
+  
+  char buf[64];
+  snprintf(buf, sizeof(buf), "OOM: %s freed %dKB", task->name, bytes_freed / 1024);
+  klog(0, buf);
+  
+  if(is_core1) mutex_exit(&kernel.core1.scheduler_lock);
+  
+  // Wake up allocating task
+  uint32_t waiting_task_id = oom_current_request.allocating_task_id;
+  if (waiting_task_id < kernel.task_count) {
+    kout.print("[OOM] Waking up allocating task ");
+    kout.println(waiting_task_id);
+    task_wake(waiting_task_id);
+  }
+  
+  oom_current_request.request_sent = false;
+}
+
+bool oom_killer(size_t bytes_needed) {
+  kout.println("\n!!! OUT OF MEMORY !!!");
+  kout.print("Need: ");
+  kout.print(bytes_needed / 1024);
+  kout.println(" KB");
+  
+  char buf[64];
+  snprintf(buf, sizeof(buf), "OOM: Need %d KB", (int)(bytes_needed / 1024));
+  klog(3, buf);
+  
+  // Check for abusive allocator
+  uint32_t allocator_id = kernel.current_task;
+  if (allocator_id < kernel.task_count) {
+    TCB* allocator_task = &kernel.tasks[allocator_id];
+    
+    if ((allocator_task->alloc_velocity > OOM_ABUSIVE_ALLOC_VELOCITY || 
+         bytes_needed > OOM_ABUSIVE_ALLOC_SIZE) &&
+        allocator_task->task_type == TASK_TYPE_APPLICATION) {
+      
+      kout.println("\n[OOM] ABUSIVE ALLOCATOR DETECTED!");
+      kout.print("[OOM] Executing allocator '"); 
+      kout.print(allocator_task->name); 
+      kout.println("'");
+      
+      brutal_task_kill(allocator_id);
+      kernel.oom_kills++;
+      oom_stats.forced_kills++;
+      oom_stats.abusive_kills++;
+      oom_current_request.request_sent = false;
+      
+      mem_compact();
+      return false;
+    }
+  }
+  
+  // Try prevention first
+  if (oom_prevent(bytes_needed)) {
+    return false;
+  }
+  
+  // Check if there's an active OOM request waiting
+  if (oom_current_request.request_sent) {
+    uint64_t elapsed = get_time_ms() - oom_current_request.request_time;
+    
+    if (elapsed < OOM_REQUEST_TIMEOUT_MS) {
+      kout.println("[OOM] Waiting for graceful cleanup...");
+      return true;
+    }
+    
+    kout.println("[OOM] Graceful cleanup timed out!");
+    kout.print("[OOM] Proceeding to kill victim: ");
+    kout.println(oom_current_request.target_task_id);
+    
+    brutal_task_kill(oom_current_request.target_task_id);
+    oom_stats.forced_kills++;
+    oom_current_request.request_sent = false;
+    
+    return false;
+  }
+  
+  // Select victim
+  OOMVictim victim = oom_select_victim(bytes_needed);
+  
+  if (victim.task_id == 0xFFFFFFFF) {
+    kout.println("OOM: NO KILLABLE APPLICATIONS!");
+    klog(3, "OOM: No victims, PANIC!");
+    kernel_panic("OOM: No killable victims");
+    return false;
+  }
+  
+  TCB* victim_task = NULL;
+  bool is_core1_victim = (victim.task_id >= 1000);
+  
+  if(is_core1_victim) mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  
+  victim_task = ipc_get_tcb_by_id_unsafe(victim.task_id);
+  if(!victim_task) {
+    if(is_core1_victim) mutex_exit(&kernel.core1.scheduler_lock);
+    kout.println("OOM: Victim vanished");
+    return false;
+  }
+  
+  kout.print("[OOM] Selected victim: '");
+  kout.print(victim_task->name);
+  kout.print("' (");
+  kout.print(victim.memory_used / 1024);
+  kout.print(" KB, score=");
+  kout.print(victim.score);
+  kout.println(")");
+  
+  // Check if victim is also an abuser
+  if (victim_task->alloc_velocity > OOM_ABUSIVE_ALLOC_VELOCITY) {
+    kout.println("[OOM] Victim is also an abusive allocator. No handler.");
+    victim.has_handler = false;
+  }
+  
+  // Try graceful cleanup if handler exists
+  if (victim.has_handler && oom_request_cleanup(&victim, bytes_needed)) {
+    if(is_core1_victim) mutex_exit(&kernel.core1.scheduler_lock);
+    return true;
+  }
+  
+  // Kill the victim
+  kout.print("[OOM] Killing '");
+  kout.print(victim_task->name);
+  kout.print("' (");
+  kout.print(victim.memory_used / 1024);
+  kout.println(" KB)");
+  
+  snprintf(buf, sizeof(buf), "OOM: Killed %s (%dKB)",
+           victim_task->name, victim.memory_used / 1024);
+  klog(2, buf);
+  
+  if(is_core1_victim) mutex_exit(&kernel.core1.scheduler_lock);
+  
+  brutal_task_kill(victim.task_id);
+  kernel.oom_kills++;
+  oom_stats.forced_kills++;
+  oom_stats.total_bytes_reclaimed += victim.memory_used;
+  
+  return false;
+}
+
+// ============================================================================
+// CPU MONITORING & PROTECTION

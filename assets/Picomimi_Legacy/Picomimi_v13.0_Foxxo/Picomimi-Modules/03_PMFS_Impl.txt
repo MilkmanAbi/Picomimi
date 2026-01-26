@@ -1,0 +1,28 @@
+// ============================================================================
+// IMPLEMENTATION
+// ============================================================================
+
+PMFS::PMFS() {
+    initialized = false;
+    mounted = false;
+    cache_enabled = PMFS_ENABLE_WRITE_CACHE;
+    journal_head = 0;
+    tmpfs_used = 0;
+    tmpfs_next_offset = 0;
+    
+    memset(&metadata, 0, sizeof(PMFSMetadata));
+    memset(&stats, 0, sizeof(PMFSStats));
+    memset(file_handles, 0, sizeof(file_handles));
+    memset(file_locks, 0, sizeof(file_locks));
+    memset(&write_cache, 0, sizeof(write_cache));
+    memset(tmpfs_entries, 0, sizeof(tmpfs_entries));
+    memset(tmpfs_pool, 0, sizeof(tmpfs_pool));
+}
+
+PMFS::~PMFS() {
+    if (mounted) {
+        unmount();
+    }
+}
+
+// ============================================================================

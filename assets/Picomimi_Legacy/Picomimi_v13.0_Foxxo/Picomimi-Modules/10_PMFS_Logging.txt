@@ -1,0 +1,90 @@
+// ============================================================================
+// LOGGING
+// ============================================================================
+
+PMFSStatus PMFS::log_system(const char* message) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    char log_path[PMFS_MAX_PATH_LENGTH];
+    snprintf(log_path, sizeof(log_path), "%s/system_%lu.log", 
+             PMFS_SYSLOG_DIR, millis() / 86400000);
+    
+    File log_file = SD.open(log_path, FILE_WRITE);
+    if (!log_file) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    char timestamp[32];
+    snprintf(timestamp, sizeof(timestamp), "[%lu] ", millis());
+    
+    log_file.print(timestamp);
+    log_file.println(message);
+    log_file.close();
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::log_user(const char* message) {
+    if (!mounted) return PMFS_ERROR_NOT_INITIALIZED;
+    
+    char log_path[PMFS_MAX_PATH_LENGTH];
+    snprintf(log_path, sizeof(log_path), "%s/user_%lu.log", 
+             PMFS_USERLOG_DIR, millis() / 86400000);
+    
+    File log_file = SD.open(log_path, FILE_WRITE);
+    if (!log_file) {
+        return PMFS_ERROR_IO_FAILURE;
+    }
+    
+    char timestamp[32];
+    snprintf(timestamp, sizeof(timestamp), "[%lu] ", millis());
+    
+    log_file.print(timestamp);
+    log_file.println(message);
+    log_file.close();
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::log_rotate(const char* log_dir, uint32_t max_files) {
+    File dir = SD.open(log_dir);
+    if (!dir) return PMFS_ERROR_FILE_NOT_FOUND;
+    
+    // Count log files
+    uint32_t file_count = 0;
+    File file = dir.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) {
+            file_count++;
+        }
+        file.close();
+        file = dir.openNextFile();
+    }
+    dir.close();
+    
+    // Delete oldest files if exceeding limit
+    if (file_count > max_files) {
+        // Simple rotation - delete oldest
+        dir = SD.open(log_dir);
+        file = dir.openNextFile();
+        uint32_t to_delete = file_count - max_files;
+        
+        while (file && to_delete > 0) {
+            if (!file.isDirectory()) {
+                char filepath[PMFS_MAX_PATH_LENGTH];
+                snprintf(filepath, sizeof(filepath), "%s/%s", log_dir, file.name());
+                file.close();
+                SD.remove(filepath);
+                to_delete--;
+            } else {
+                file.close();
+            }
+            file = dir.openNextFile();
+        }
+        dir.close();
+    }
+    
+    return PMFS_OK;
+}
+
+// ============================================================================

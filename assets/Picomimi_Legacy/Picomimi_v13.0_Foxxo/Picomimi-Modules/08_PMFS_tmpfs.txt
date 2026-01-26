@@ -1,0 +1,143 @@
+// ============================================================================
+// TMPFS - FULLY FUNCTIONAL IMPLEMENTATION
+// ============================================================================
+
+PMFSStatus PMFS::tmpfs_create(const char* name, uint32_t size) {
+    if (tmpfs_used + size > PMFS_TMPFS_SIZE) {
+        Serial.println("[PMFS] ERROR: tmpfs full");
+        return PMFS_ERROR_NO_SPACE;
+    }
+    
+    // Check if already exists
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use && strcmp(tmpfs_entries[i].name, name) == 0) {
+            return PMFS_ERROR_ALREADY_EXISTS;
+        }
+    }
+    
+    int idx = -1;
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (!tmpfs_entries[i].in_use) {
+            idx = i;
+            break;
+        }
+    }
+    
+    if (idx < 0) {
+        Serial.println("[PMFS] ERROR: tmpfs entry limit reached");
+        return PMFS_ERROR_NO_SPACE;
+    }
+    
+    // Allocate from pool
+    uint8_t* data_ptr = &tmpfs_pool[tmpfs_next_offset];
+    tmpfs_next_offset += size;
+    tmpfs_used += size;
+    
+    PMFSTmpFSEntry* entry = &tmpfs_entries[idx];
+    entry->in_use = true;
+    strncpy(entry->name, name, PMFS_MAX_FILENAME - 1);
+    entry->name[PMFS_MAX_FILENAME - 1] = '\0';
+    entry->data = data_ptr;
+    entry->size = 0;
+    entry->allocated = size;
+    entry->created = millis();
+    entry->modified = millis();
+    
+    return PMFS_OK;
+}
+
+PMFSStatus PMFS::tmpfs_write(const char* name, const uint8_t* data, uint32_t size) {
+    PMFSTmpFSEntry* entry = nullptr;
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use && strcmp(tmpfs_entries[i].name, name) == 0) {
+            entry = &tmpfs_entries[i];
+            break;
+        }
+    }
+    
+    if (!entry) {
+        Serial.println("[PMFS] ERROR: tmpfs entry not found");
+        return PMFS_ERROR_FILE_NOT_FOUND;
+    }
+    
+    if (size > entry->allocated) {
+        Serial.println("[PMFS] ERROR: tmpfs write exceeds allocation");
+        return PMFS_ERROR_NO_SPACE;
+    }
+    
+    memcpy(entry->data, data, size);
+    entry->size = size;
+    entry->modified = millis();
+    
+    return PMFS_OK;
+}
+
+int PMFS::tmpfs_read(const char* name, uint8_t* buffer, uint32_t max_size) {
+    PMFSTmpFSEntry* entry = nullptr;
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use && strcmp(tmpfs_entries[i].name, name) == 0) {
+            entry = &tmpfs_entries[i];
+            break;
+        }
+    }
+    
+    if (!entry) return -1;
+    
+    uint32_t to_read = (entry->size < max_size) ? entry->size : max_size;
+    memcpy(buffer, entry->data, to_read);
+    
+    return to_read;
+}
+
+PMFSStatus PMFS::tmpfs_delete(const char* name) {
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use && strcmp(tmpfs_entries[i].name, name) == 0) {
+            tmpfs_entries[i].in_use = false;
+            // Mark space as available (will be reclaimed during compact)
+            return PMFS_OK;
+        }
+    }
+    
+    return PMFS_ERROR_FILE_NOT_FOUND;
+}
+
+void PMFS::tmpfs_clear() {
+    memset(tmpfs_entries, 0, sizeof(tmpfs_entries));
+    memset(tmpfs_pool, 0, sizeof(tmpfs_pool));
+    tmpfs_used = 0;
+    tmpfs_next_offset = 0;
+}
+
+uint32_t PMFS::tmpfs_available() {
+    return PMFS_TMPFS_SIZE - tmpfs_used;
+}
+
+bool PMFS::tmpfs_exists(const char* name) {
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use && strcmp(tmpfs_entries[i].name, name) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Defragment tmpfs by compacting holes
+void PMFS::tmpfs_compact() {
+    uint8_t temp_pool[PMFS_TMPFS_SIZE];
+    uint32_t write_offset = 0;
+    
+    for (int i = 0; i < PMFS_MAX_TMPFS_ENTRIES; i++) {
+        if (tmpfs_entries[i].in_use) {
+            // Copy data to temp pool
+            memcpy(&temp_pool[write_offset], tmpfs_entries[i].data, tmpfs_entries[i].size);
+            tmpfs_entries[i].data = &tmpfs_pool[write_offset];
+            write_offset += tmpfs_entries[i].allocated;
+        }
+    }
+    
+    // Copy back to main pool
+    memcpy(tmpfs_pool, temp_pool, write_offset);
+    tmpfs_next_offset = write_offset;
+}
+
+// ============================================================================

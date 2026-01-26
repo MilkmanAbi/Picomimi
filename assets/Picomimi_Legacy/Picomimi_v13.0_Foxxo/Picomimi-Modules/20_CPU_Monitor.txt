@@ -1,0 +1,143 @@
+// CPU MONITORING & PROTECTION
+// ============================================================================
+
+void update_task_cpu_usage(TCB* task, uint64_t cpu_time_us) {
+  if (!task) return;
+  
+  // Update rolling average of CPU samples
+  float instant_cpu = (float)(cpu_time_us / 1000.0f);
+  
+  task->sched_info.cpu_samples[task->sched_info.cpu_sample_index] = instant_cpu;
+  task->sched_info.cpu_sample_index = 
+    (task->sched_info.cpu_sample_index + 1) % CPU_ABUSE_SAMPLE_COUNT;
+  
+  // Calculate average
+  float total = 0;
+  for (int i = 0; i < CPU_ABUSE_SAMPLE_COUNT; i++) {
+    total += task->sched_info.cpu_samples[i];
+  }
+  task->sched_info.cpu_usage_percent = total / CPU_ABUSE_SAMPLE_COUNT;
+  
+  // Detect CPU burst
+  if (instant_cpu > CPU_TASK_ABUSE_THRESHOLD) {
+    task->sched_info.cpu_burst_counter++;
+  } else {
+    task->sched_info.cpu_burst_counter = 0;
+  }
+}
+
+bool is_cpu_overloaded() {
+  return (kernel.cpu_usage > CPU_OVERLOAD_THRESHOLD);
+}
+
+bool is_task_cpu_abuser(TCB* task) {
+  if (!task) return false;
+  
+  // Check if task consistently uses too much CPU
+  if (task->sched_info.cpu_usage_percent > CPU_TASK_ABUSE_THRESHOLD &&
+      task->sched_info.cpu_burst_counter > 3) {
+    return true;
+  }
+  
+  return false;
+}
+
+void handle_cpu_overload() {
+  if (!is_cpu_overloaded()) return;
+  
+  kout.println("\n!!! CPU OVERLOAD DETECTED !!!");
+  kout.print("System CPU: ");
+  kout.print(kernel.cpu_usage, 1);
+  kout.println("%");
+  
+  // Find CPU abusers
+  TCB* worst_abuser = NULL;
+  float worst_usage = 0;
+  
+  for (uint32_t i = 1; i < kernel.task_count; i++) {
+    TCB* task = &kernel.tasks[i];
+    
+    if (task->state == TASK_TERMINATED || task->state == TASK_ZOMBIE) continue;
+    if (task->task_type != TASK_TYPE_APPLICATION) continue;
+    if (task->flags & TASK_FLAG_CRITICAL) continue;
+    
+    if (is_task_cpu_abuser(task)) {
+      if (task->sched_info.cpu_usage_percent > worst_usage) {
+        worst_usage = task->sched_info.cpu_usage_percent;
+        worst_abuser = task;
+      }
+    }
+  }
+  
+  if (worst_abuser) {
+    kout.print("[CPU] Killing CPU abuser: '");
+    kout.print(worst_abuser->name);
+    kout.print("' (");
+    kout.print(worst_abuser->sched_info.cpu_usage_percent, 1);
+    kout.println("%)");
+    
+    worst_abuser->is_cpu_abuser = true;
+    
+    char buf[64];
+    snprintf(buf, sizeof(buf), "CPU: Killed %s (%.1f%%)", 
+             worst_abuser->name, worst_abuser->sched_info.cpu_usage_percent);
+    klog(2, buf);
+    
+    brutal_task_kill(worst_abuser->id);
+  } else {
+    kout.println("[CPU] No obvious abuser found, throttling system");
+    task_sleep(100);
+  }
+}
+
+// SCHEDULER - PRIORITY BITMAP OPERATIONS
+// ============================================================================
+
+static inline int bitmap_ffs(uint32_t mask) {
+  if (mask == 0) return -1;
+  return __builtin_ctz(mask);
+}
+
+static inline void bitmap_set(uint32_t* mask, uint8_t bit) {
+  *mask |= (1U << bit);
+}
+
+static inline void bitmap_clear(uint32_t* mask, uint8_t bit) {
+  *mask &= ~(1U << bit);
+}
+
+static void sched_bitmap_add(PriorityBitmap* bm, uint32_t task_id, uint8_t priority) {
+  if (priority >= SCHED_NUM_PRIORITY_LEVELS) priority = SCHED_NUM_PRIORITY_LEVELS - 1;
+  if (task_id >= 32) return;
+  
+  bitmap_set(&bm->task_masks[priority], task_id);
+  bitmap_set(&bm->level_mask, priority);
+}
+
+static void sched_bitmap_remove(PriorityBitmap* bm, uint32_t task_id, uint8_t priority) {
+  if (priority >= SCHED_NUM_PRIORITY_LEVELS) priority = SCHED_NUM_PRIORITY_LEVELS - 1;
+  if (task_id >= 32) return;
+  
+  bitmap_clear(&bm->task_masks[priority], task_id);
+  
+  if (bm->task_masks[priority] == 0) {
+    bitmap_clear(&bm->level_mask, priority);
+  }
+}
+
+static int sched_bitmap_find_highest(PriorityBitmap* bm, uint32_t* task_id_out) {
+  if (bm->level_mask == 0) return -1;
+  
+  int level = 31 - __builtin_clz(bm->level_mask);
+  int task_id = bitmap_ffs(bm->task_masks[level]);
+  
+  if (task_id >= 0) {
+    *task_id_out = task_id;
+    return level;
+  }
+  
+  return -1;
+}
+
+// ============================================================================
+// SCHEDULER

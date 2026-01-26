@@ -1,0 +1,249 @@
+// CORE 1
+// ============================================================================
+
+void core1_scheduler_init() {
+  mutex_init(&kernel.core1.scheduler_lock);
+  
+  kernel.core1.task_count = 0;
+  kernel.core1.current_task = 0;
+  kernel.core1.running = true;
+  kernel.core1.uptime_us = 0;
+  kernel.core1.cpu_usage = 0.0f;
+  kernel.core1.context_switches = 0;
+  
+  memset(&kernel.core1.tasks, 0, sizeof(kernel.core1.tasks));
+}
+
+void core1_main() {
+  scheduler_init_core1();
+  
+  kernel.core1.uptime_us = get_time_us();
+  
+  uint64_t last_stats_update = get_time_ms();
+  static uint64_t last_total_time_c1 = 0;
+  
+  while (kernel.core1.running) {
+    if (kernel.core1.task_count == 0) {
+      tight_loop_contents();
+      sleep_us(1000);
+      continue;
+    }
+    
+    uint64_t loop_start = get_time_us();
+    uint64_t now_ms = get_time_ms();
+    
+    // Wake waiting tasks
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+    for (uint32_t i = 0; i < kernel.core1.task_count; i++) {
+      TCB* task = &kernel.core1.tasks[i];
+      
+      if (task->state == TASK_WAITING && now_ms >= task->wake_time) {
+        task->state = TASK_READY;
+        
+        mutex_enter_blocking(&core1_sched.lock);
+        if (task->affinity == CORE_1 || task->affinity == CORE_ANY) {
+          sched_bitmap_add(&core1_sched.runnable, i, task->priority);
+        }
+        mutex_exit(&core1_sched.lock);
+      }
+    }
+    mutex_exit(&kernel.core1.scheduler_lock);
+    
+    // Age tasks
+    sched_age_tasks(&core1_sched, kernel.core1.tasks, kernel.core1.task_count);
+    
+    // Select next task
+    uint32_t task_id = sched_select_next_core1();
+    
+    if (task_id == 0xFFFFFFFF) {
+      sleep_us(100);
+      continue;
+    }
+    
+    mutex_enter_blocking(&kernel.core1.scheduler_lock);
+    
+    if (task_id >= kernel.core1.task_count) {
+      mutex_exit(&kernel.core1.scheduler_lock);
+      continue;
+    }
+    
+    TCB* task = &kernel.core1.tasks[task_id];
+    
+    if (task->mem_blocked) {
+      mutex_exit(&kernel.core1.scheduler_lock);
+      continue;
+    }
+    
+    // Handle OOM cleanup request
+    if (task->flags & TASK_FLAG_OOM_CLEANUP_REQUESTED) {
+      oom_callback_t handler = oom_get_handler(task->id);
+      if (handler) {
+        handler(task->oom_bytes_requested);
+      }
+      task->flags &= ~TASK_FLAG_OOM_CLEANUP_REQUESTED;
+      task->oom_bytes_requested = 0;
+    }
+    
+    // Execute task
+    if ((task->state == TASK_READY || task->state == TASK_RUNNING) &&
+        (task->entry || (task->callbacks && task->callbacks->tick))) {
+      
+      task->state = TASK_RUNNING;
+      task->running_on_core = 1;
+      
+      mutex_enter_blocking(&core1_sched.lock);
+      sched_bitmap_remove(&core1_sched.runnable, task_id, task->priority);
+      mutex_exit(&core1_sched.lock);
+      
+      uint64_t task_start = get_time_us();
+      
+      mutex_exit(&kernel.core1.scheduler_lock);
+      
+      if (task->callbacks && task->callbacks->tick) {
+        task->callbacks->tick(task->arg);
+      } else if (task->entry) {
+        task->entry(task->arg);
+      }
+      
+      mutex_enter_blocking(&kernel.core1.scheduler_lock);
+      
+      uint64_t task_duration = get_time_us() - task_start;
+      task->cpu_time += (task_duration + 500) / 1000;
+      task->total_cpu_time_us += task_duration;
+      task->sched_info.last_run = get_time_ms();
+      
+      // Update CPU usage
+      update_task_cpu_usage(task, task_duration);
+      
+      if (task->state == TASK_RUNNING) {
+        task->state = TASK_READY;
+        
+        mutex_enter_blocking(&core1_sched.lock);
+        if (task->affinity == CORE_1 || task->affinity == CORE_ANY) {
+          sched_bitmap_add(&core1_sched.runnable, task_id, task->priority);
+        }
+        mutex_exit(&core1_sched.lock);
+      }
+    }
+    
+    mutex_exit(&kernel.core1.scheduler_lock);
+    
+    core1_sched.switches++;
+    
+    // Update CPU stats
+    if (now_ms - last_stats_update >= 1000) {
+      mutex_enter_blocking(&kernel.core1.scheduler_lock);
+      
+      uint64_t total_cpu = 0;
+      for (uint32_t i = 0; i < kernel.core1.task_count; i++) {
+        total_cpu += kernel.core1.tasks[i].cpu_time;
+      }
+      
+      uint64_t busy_time_ms = total_cpu - last_total_time_c1;
+      last_total_time_c1 = total_cpu;
+      
+      uint64_t period_ms = now_ms - last_stats_update;
+      if (period_ms == 0) period_ms = 1;
+      if (busy_time_ms > period_ms) busy_time_ms = period_ms;
+      
+      float instant_load = 100.0f * (float)busy_time_ms / (float)period_ms;
+      kernel.core1.cpu_usage = (kernel.core1.cpu_usage * 0.9f) + (instant_load * 0.1f);
+      
+      if (kernel.core1.cpu_usage > 100) kernel.core1.cpu_usage = 100;
+      if (kernel.core1.cpu_usage < 0) kernel.core1.cpu_usage = 0;
+      
+      mutex_exit(&kernel.core1.scheduler_lock);
+      
+      last_stats_update = now_ms;
+    }
+    
+    // Sleep for remaining time
+    uint64_t elapsed = get_time_us() - loop_start;
+    if (elapsed < SCHEDULER_TICK_US) {
+      sleep_us(SCHEDULER_TICK_US - elapsed);
+    }
+  }
+}
+
+uint32_t k_spawn_core1_task(const char* name, void (*entry)(void*), void* arg, uint8_t priority) {
+  if (!kernel.core1_initialized) {
+    kout.println("[CORE1] Not initialized");
+    return 0;
+  }
+  
+  mutex_enter_blocking(&kernel.core1.scheduler_lock);
+  
+  if (kernel.core1.task_count >= MAX_CORE1_TASKS) {
+    mutex_exit(&kernel.core1.scheduler_lock);
+    kout.println("[CORE1] Task limit reached");
+    return 0;
+  }
+  
+  uint32_t id = kernel.core1.task_count++;
+  TCB* task = &kernel.core1.tasks[id];
+  memset(task, 0, sizeof(TCB));
+  
+  task->id = id + 1000;
+  strncpy(task->name, name, TASK_NAME_LEN - 1);
+  task->name[TASK_NAME_LEN - 1] = '\0';
+  task->state = TASK_READY;
+  task->task_type = TASK_TYPE_APPLICATION;
+  task->priority = priority;
+  task->affinity = CORE_1;
+  task->entry = entry;
+  task->arg = arg;
+  task->running_on_core = 1;
+  task->start_time = get_time_ms();
+  task->oom_bytes_requested = 0;
+  task->total_cpu_time_us = 0;
+  task->is_cpu_abuser = false;
+  
+  task_init_ipc_queue(task);
+  
+  task->original_priority = 0;
+  
+  // Set up scheduling info
+  TaskSchedInfo* si = &task->sched_info;
+  si->base_priority = priority;
+  si->effective_priority = priority;
+  si->is_realtime = (priority >= SCHED_RT_THRESHOLD);
+  
+  if (si->is_realtime) {
+    si->quantum_us = SCHED_BASE_QUANTUM_US;
+  } else {
+    si->quantum_us = SCHED_BASE_QUANTUM_US +
+                     (SCHED_NUM_PRIORITY_LEVELS - priority) * 2000;
+    if (si->quantum_us > SCHED_MAX_QUANTUM_US) {
+      si->quantum_us = SCHED_MAX_QUANTUM_US;
+    }
+  }
+  
+  si->cpu_affinity = 1;
+  si->last_run = get_time_us();
+  si->cpu_usage_percent = 0;
+  si->cpu_burst_counter = 0;
+  si->cpu_sample_index = 0;
+  memset(si->cpu_samples, 0, sizeof(si->cpu_samples));
+  
+  // Add to scheduler
+  mutex_enter_blocking(&core1_sched.lock);
+  if (task->affinity == CORE_1 || task->affinity == CORE_ANY) {
+    sched_bitmap_add(&core1_sched.runnable, id, task->priority);
+  }
+  mutex_exit(&core1_sched.lock);
+  
+  mutex_exit(&kernel.core1.scheduler_lock);
+  
+  kout.print("[CORE1] Spawned task: ");
+  kout.print(name);
+  kout.print(" (ID=");
+  kout.print(task->id);
+  kout.println(")");
+  
+  return task->id;
+}
+
+// Continued in next message due to length...
+
+// ============================================================================
+// IPC SYSTEM
