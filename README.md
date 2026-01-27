@@ -8,6 +8,8 @@
 > The core is now native C/C++, improving performance, maintainability, and scalability. Eventually, Picomimi will return to the Arduino ecosystem as a fully packaged, standalone library, removing dependencies on Arduino core logic while remaining accessible to all developers.
 > *Proper HALs and drivers are in active development. ฅ(•ㅅ•❀)ฅ*
 
+> **Picomimi v14.3.1 is being ported over to the new workflow and Pico-SDK, for clarily, it will be called v15.0. Picomimi versions 15.x.x will build upon the 14.3.1 feature set. Alpha ports are non functional, work in progress.**
+
 > **Note:** *Picomimi and AxisOS are tightly connected; they influence each other heavily. The distinction will be clarified in future updates.*
 
 ---
