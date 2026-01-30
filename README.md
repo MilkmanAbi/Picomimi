@@ -163,6 +163,18 @@ Because I’m struggling with even basic Computer Engineering, I have no idea wh
 
 ---
 
+## Other Projects
+
+Picomimi makes extensive use of several of **my own projects**, including:
+
+* **[MimiC](https://github.com/MilkmanAbi/MimiC)** — the on-device C compiler and systems language (work-in-progress)
+* **[AxisOS](https://github.com/MilkmanAbi/AxisOS)** — a complete derivative of Picomimi, currently under development, empty
+* **[Pico-Governor](https://github.com/MilkmanAbi/pico-governor)** — A partial derivative of Picomimi, currently under development, an utility for Dynamic Power Management on Raspberry Pico Silicon
+
+Future **Picomimi v16.0+** releases will gradually and experimentally integrate MimiC, reusing these projects to broaden the capabilities of this MicroOS.
+
+---
+
 **Made with ambition, persistence, and a love for embedded systems**
 ฅ(•ㅅ•❀)ฅ
 
