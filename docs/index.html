@@ -1,57 +1,849 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Project</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2rem;
-      background-color: #f5f5f5;
-      color: #333;
-    }
-    header {
-      border-bottom: 2px solid #ccc;
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-    }
-    h1 {
-      color: #007acc;
-    }
-    a {
-      color: #007acc;
-      text-decoration: none;
-    }
-    a:hover {
-      text-decoration: underline;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Picomimi v15 | AxisOS - Moonlit Vixen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --gradient-1: #ffd6e0;
+            --gradient-2: #c9b1ff;
+            --gradient-3: #a8d8ff;
+            --gradient-4: #b8f4d0;
+            --gradient-5: #fff4b8;
+            --accent: #2d3748;
+            --accent-light: #4a5568;
+            --glass: rgba(255, 255, 255, 0.15);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --text-dark: #1a202c;
+            --text-light: #718096;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--gradient-1) 0%, var(--gradient-2) 25%, var(--gradient-3) 50%, var(--gradient-4) 75%, var(--gradient-5) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            color: var(--text-dark);
+            overflow-x: hidden;
+        }
+
+        .blob-container {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.6;
+            animation: float 20s infinite ease-in-out;
+        }
+
+        .blob-1 { width: 600px; height: 600px; background: var(--gradient-1); top: -200px; left: -200px; }
+        .blob-2 { width: 500px; height: 500px; background: var(--gradient-2); top: 50%; right: -150px; animation-delay: -5s; }
+        .blob-3 { width: 400px; height: 400px; background: var(--gradient-4); bottom: -100px; left: 30%; animation-delay: -10s; }
+        .blob-4 { width: 350px; height: 350px; background: var(--gradient-3); top: 40%; left: 10%; animation-delay: -15s; }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(50px, -50px) scale(1.1); }
+            50% { transform: translate(-30px, 30px) scale(0.95); }
+            75% { transform: translate(40px, 20px) scale(1.05); }
+        }
+
+        nav {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            padding: 1rem 2rem;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--accent);
+        }
+
+        .logo-icon {
+            width: 40px; height: 40px;
+            background: linear-gradient(135deg, var(--gradient-2), var(--gradient-3));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        .nav-logo:hover .logo-icon { transform: rotate(-10deg) scale(1.1); }
+        .nav-logo span { font-weight: 700; font-size: 1.25rem; letter-spacing: -0.5px; }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--accent);
+            font-weight: 500;
+            font-size: 0.95rem;
+            position: relative;
+            padding: 0.5rem 0;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0;
+            width: 0; height: 2px;
+            background: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after { width: 100%; }
+
+        .nav-cta {
+            background: var(--accent);
+            color: white !important;
+            padding: 0.75rem 1.5rem !important;
+            border-radius: 50px;
+            transition: all 0.3s ease !important;
+        }
+
+        .nav-cta::after { display: none !important; }
+        .nav-cta:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(45, 55, 72, 0.3); }
+
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6rem 2rem 4rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            text-align: center;
+            animation: fadeInUp 1s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(40px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease 0.1s both;
+        }
+
+        .hero-logo {
+            width: 180px; height: 180px;
+            margin: 0 auto 2rem;
+            background: linear-gradient(135deg, var(--gradient-2), var(--gradient-3));
+            border-radius: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 5rem;
+            animation: fadeInUp 1s ease 0.2s both;
+            filter: drop-shadow(0 20px 40px rgba(0,0,0,0.15));
+            transition: transform 0.5s ease;
+            position: relative;
+        }
+
+        .hero-logo::before {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            width: 0; height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 40px solid var(--gradient-2);
+            transform: rotate(-15deg);
+        }
+
+        .hero-logo::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            right: 30px;
+            width: 0; height: 0;
+            border-left: 25px solid transparent;
+            border-right: 25px solid transparent;
+            border-bottom: 40px solid var(--gradient-3);
+            transform: rotate(15deg);
+        }
+
+        .hero-logo:hover { transform: scale(1.05) rotate(-5deg); }
+
+        .hero h1 {
+            font-size: clamp(3rem, 8vw, 5.5rem);
+            font-weight: 900;
+            letter-spacing: -3px;
+            line-height: 1;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 1s ease 0.3s both;
+        }
+
+        .hero h1 span {
+            background: linear-gradient(135deg, var(--accent) 0%, #667eea 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.1rem, 2.5vw, 1.4rem);
+            color: var(--accent-light);
+            max-width: 600px;
+            margin: 0 auto 2.5rem;
+            line-height: 1.7;
+            animation: fadeInUp 1s ease 0.4s both;
+        }
+
+        .hero-version {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+            animation: fadeInUp 1s ease 0.5s both;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease 0.6s both;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 20px rgba(45, 55, 72, 0.3);
+        }
+
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 40px rgba(45, 55, 72, 0.4); }
+
+        .btn-secondary {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            color: var(--accent);
+            border: 1px solid var(--glass-border);
+        }
+
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.3); transform: translateY(-3px); }
+
+        section {
+            position: relative;
+            z-index: 1;
+            padding: 6rem 2rem;
+        }
+
+        .section-container { max-width: 1200px; margin: 0 auto; }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-header h2 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 1rem;
+        }
+
+        .section-header p {
+            color: var(--accent-light);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2.5rem;
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--gradient-2), var(--gradient-3));
+            transform: scaleX(0);
+            transition: transform 0.4s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-card:hover::before { transform: scaleX(1); }
+
+        .feature-icon {
+            width: 60px; height: 60px;
+            background: linear-gradient(135deg, var(--gradient-2), var(--gradient-3));
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-card h3 { font-size: 1.4rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .feature-card p { color: var(--accent-light); line-height: 1.7; }
+
+        .architecture {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--glass-border);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .arch-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        @media (max-width: 900px) {
+            .arch-grid { grid-template-columns: 1fr; gap: 2rem; }
+        }
+
+        .arch-diagram {
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            border-radius: 20px;
+            padding: 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: #e2e8f0;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        }
+
+        .arch-layer {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            text-align: center;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .arch-layer:hover { background: rgba(255, 255, 255, 0.1); transform: translateX(5px); }
+        .arch-layer.kernel { background: linear-gradient(90deg, rgba(167, 139, 250, 0.3), rgba(139, 92, 246, 0.3)); border-color: rgba(167, 139, 250, 0.5); }
+        .arch-layer.hal { background: linear-gradient(90deg, rgba(96, 165, 250, 0.3), rgba(59, 130, 246, 0.3)); border-color: rgba(96, 165, 250, 0.5); }
+        .arch-layer.services { background: linear-gradient(90deg, rgba(52, 211, 153, 0.3), rgba(16, 185, 129, 0.3)); border-color: rgba(52, 211, 153, 0.5); }
+
+        .arch-content h3 { font-size: 2rem; font-weight: 800; margin-bottom: 1.5rem; }
+        .arch-content p { color: var(--accent-light); line-height: 1.8; margin-bottom: 1.5rem; }
+
+        .arch-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .stat { text-align: center; }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent) 0%, #667eea 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label { font-size: 0.85rem; color: var(--text-light); margin-top: 0.25rem; }
+
+        .code-section { padding: 6rem 2rem; }
+
+        .code-window {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #1a202c;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.25);
+        }
+
+        .code-header {
+            background: #2d3748;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .code-dot { width: 12px; height: 12px; border-radius: 50%; }
+        .code-dot.red { background: #fc8181; }
+        .code-dot.yellow { background: #f6e05e; }
+        .code-dot.green { background: #68d391; }
+
+        .code-title {
+            margin-left: 1rem;
+            color: #a0aec0;
+            font-size: 0.85rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .code-content { padding: 1.5rem; overflow-x: auto; }
+
+        .code-content pre {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            color: #e2e8f0;
+            margin: 0;
+        }
+
+        .code-content .comment { color: #718096; }
+        .code-content .keyword { color: #f687b3; }
+        .code-content .function { color: #63b3ed; }
+        .code-content .string { color: #68d391; }
+        .code-content .number { color: #f6ad55; }
+        .code-content .type { color: #b794f4; }
+
+        .getting-started {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border-radius: 32px;
+            padding: 4rem;
+            margin: 2rem auto;
+            max-width: 1000px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .steps { display: grid; gap: 2rem; }
+
+        .step {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .step-number {
+            width: 48px; height: 48px;
+            background: var(--accent);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 { font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem; }
+        .step-content p { color: var(--accent-light); margin-bottom: 0.75rem; }
+
+        .step-content code {
+            display: block;
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            overflow-x: auto;
+        }
+
+        footer {
+            position: relative;
+            z-index: 1;
+            padding: 4rem 2rem 2rem;
+            text-align: center;
+        }
+
+        .footer-content { max-width: 1200px; margin: 0 auto; }
+
+        .footer-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-logo .logo-icon { width: 50px; height: 50px; font-size: 2rem; }
+        .footer-logo span { font-size: 1.5rem; font-weight: 700; }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a { color: var(--accent-light); text-decoration: none; transition: color 0.3s ease; }
+        .footer-links a:hover { color: var(--accent); }
+
+        .footer-bottom {
+            padding-top: 2rem;
+            border-top: 1px solid var(--glass-border);
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .footer-bottom a { color: var(--accent); text-decoration: none; }
+
+        .fade-in { opacity: 0; transform: translateY(30px); transition: all 0.8s ease; }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .getting-started { padding: 2rem; }
+            .step { grid-template-columns: 1fr; }
+        }
+
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--accent-light); border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+    </style>
 </head>
 <body>
+    <div class="blob-container">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+        <div class="blob blob-4"></div>
+    </div>
 
-  <header>
-    <h1>My Project</h1>
-    <p>Welcome to the GitHub Pages demo site!</p>
-  </header>
+    <nav id="navbar">
+        <div class="nav-content">
+            <a href="#" class="nav-logo">
+                <div class="logo-icon">🐱</div>
+                <span>Picomimi</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#code">API</a>
+                <a href="#start">Get Started</a>
+                <a href="#" class="nav-cta">GitHub →</a>
+            </div>
+        </div>
+    </nav>
 
-  <section>
-    <h2>About</h2>
-    <p>This project does cool stuff. You can find the source code <a href="https://github.com/<your-username>/<repo-name>">here</a>.</p>
-  </section>
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">🦊 v15.0.0-Alpha • Moonlit Vixen</div>
+            <div class="hero-logo">🔧</div>
+            <h1><span>Picomimi</span></h1>
+            <p class="hero-subtitle">
+                A sophisticated microkernel operating system for Raspberry Pi Pico. 
+                Dual-core scheduling, advanced memory management, and a complete 
+                development ecosystem — all in under 64KB.
+            </p>
+            <p class="hero-version">Powered by <strong>AxisOS</strong> kernel architecture</p>
+            <div class="hero-buttons">
+                <a href="#start" class="btn btn-primary">
+                    ⬇️ Download v15
+                </a>
+                <a href="#architecture" class="btn btn-secondary">
+                    ▶️ Learn More
+                </a>
+            </div>
+        </div>
+    </section>
 
-  <section>
-    <h2>Getting Started</h2>
-    <ol>
-      <li>Clone the repo</li>
-      <li>Read the docs</li>
-      <li>Enjoy!</li>
-    </ol>
-  </section>
+    <section id="features">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2>Powerful. Efficient. Adorable.</h2>
+                <p>Everything you need to build sophisticated embedded applications on the RP2040.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">⚡</div>
+                    <h3>O(1) Scheduler</h3>
+                    <p>Priority bitmap scheduler with constant-time task selection. Supports 16 priority levels with aging to prevent starvation.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Dual-Core Support</h3>
+                    <p>True SMP with per-core schedulers and work stealing. Automatic load balancing across both Cortex-M0+ cores.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">💾</div>
+                    <h3>Smart Memory</h3>
+                    <p>Coalescing allocator with small-block pools, OOM handling, and pressure monitoring. Every byte optimized.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">📁</div>
+                    <h3>PMFS Filesystem</h3>
+                    <p>Power-safe journaling filesystem for internal flash. Wear leveling, crash recovery, and POSIX-like API.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🔐</div>
+                    <h3>IPC & Sync</h3>
+                    <p>Mutexes, semaphores, events, and message queues with priority inheritance and deadlock detection.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🎮</div>
+                    <h3>HAL Layer</h3>
+                    <p>Complete hardware abstraction for GPIO, SPI, I2C, UART, ADC, PWM, DMA, and PIO. Clean C API throughout.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-  <footer>
-    <p>© 2026 <a href="https://github.com/<your-username>">Your Name</a></p>
-  </footer>
+    <section id="architecture" class="architecture">
+        <div class="section-container">
+            <div class="arch-grid">
+                <div class="arch-visual fade-in">
+                    <div class="arch-diagram">
+                        <div class="arch-layer">📱 Applications & Shell</div>
+                        <div class="arch-layer services">🔧 System Services (klog, watchdog, gui)</div>
+                        <div class="arch-layer kernel">⚙️ AxisOS Microkernel</div>
+                        <div class="arch-layer">├─ Scheduler │ Memory │ IPC │ PMFS</div>
+                        <div class="arch-layer hal">🔌 Hardware Abstraction Layer</div>
+                        <div class="arch-layer">🎛️ Pico SDK / RP2040 Hardware</div>
+                    </div>
+                </div>
+                <div class="arch-content fade-in">
+                    <h3>Built from the Ground Up</h3>
+                    <p>
+                        Picomimi's AxisOS kernel is designed specifically for the RP2040's unique 
+                        dual-core architecture. Unlike ports of larger RTOSes, every component is 
+                        optimized for the 264KB RAM and 2MB flash constraints.
+                    </p>
+                    <p>
+                        The microkernel design keeps the core small and auditable, while services 
+                        handle everything from logging to GUI rendering. Pure C, pure Pico SDK, 
+                        pure performance.
+                    </p>
+                    <div class="arch-stats">
+                        <div class="stat">
+                            <div class="stat-value">13K+</div>
+                            <div class="stat-label">Lines of Code</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">&lt;64</div>
+                            <div class="stat-label">KB Binary</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">19</div>
+                            <div class="stat-label">Source Files</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
+    <section id="code" class="code-section">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2>Clean, Intuitive API</h2>
+                <p>Write embedded applications with familiar patterns and modern tooling.</p>
+            </div>
+            <div class="code-window fade-in">
+                <div class="code-header">
+                    <span class="code-dot red"></span>
+                    <span class="code-dot yellow"></span>
+                    <span class="code-dot green"></span>
+                    <span class="code-title">main.c</span>
+                </div>
+                <div class="code-content">
+<pre><span class="comment">// Create a simple blinky task with Picomimi</span>
+<span class="keyword">#include</span> <span class="string">"picomimi/kernel.h"</span>
+
+<span class="type">void</span> <span class="function">blinky_task</span>(<span class="type">void</span>* arg) {
+    <span class="type">uint8_t</span> pin = (<span class="type">uint8_t</span>)(<span class="type">uintptr_t</span>)arg;
+    
+    <span class="keyword">while</span> (<span class="number">1</span>) {
+        <span class="function">gpio_toggle</span>(pin);
+        <span class="function">task_sleep_ms</span>(<span class="number">500</span>);
+    }
+}
+
+<span class="type">int</span> <span class="function">main</span>() {
+    <span class="comment">// Initialize the kernel</span>
+    <span class="function">kernel_init</span>();
+    
+    <span class="comment">// Create tasks on different cores</span>
+    <span class="function">task_create</span>(<span class="string">"blink_0"</span>, blinky_task, (<span class="type">void</span>*)<span class="number">25</span>, <span class="number">5</span>, CORE_0);
+    <span class="function">task_create</span>(<span class="string">"blink_1"</span>, blinky_task, (<span class="type">void</span>*)<span class="number">15</span>, <span class="number">5</span>, CORE_1);
+    
+    <span class="comment">// Start the scheduler - never returns</span>
+    <span class="function">kernel_start</span>();
+}</pre>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="start">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2>Get Started in Minutes</h2>
+                <p>From zero to blinking LED in three simple steps.</p>
+            </div>
+            <div class="getting-started fade-in">
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Clone the Repository</h4>
+                            <p>Grab the latest source from GitHub:</p>
+                            <code>git clone https://github.com/abinaash/picomimi.git<br>cd picomimi</code>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Configure & Build</h4>
+                            <p>Set your Pico SDK path and compile:</p>
+                            <code>export PICO_SDK_PATH=/path/to/pico-sdk<br>mkdir build && cd build<br>cmake .. && make -j$(nproc)</code>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Flash & Run</h4>
+                            <p>Hold BOOTSEL, plug in your Pico, and copy the UF2:</p>
+                            <code>cp picomimi.uf2 /media/$USER/RPI-RP2/</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="footer-content">
+            <div class="footer-logo">
+                <div class="logo-icon">🐱</div>
+                <span>Picomimi</span>
+            </div>
+            <div class="footer-links">
+                <a href="#">GitHub</a>
+                <a href="#">Documentation</a>
+                <a href="#">Issues</a>
+                <a href="#">Releases</a>
+            </div>
+            <div class="footer-bottom">
+                <p>Made with 💜 and way too much caffeine</p>
+                <p>© 2024-2026 <a href="#">Abinaash</a> • MIT License</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            navbar.classList.toggle('scrolled', window.scrollY > 50);
+        });
+
+        const fadeElements = document.querySelectorAll('.fade-in');
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('visible');
+            });
+        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+        fadeElements.forEach(el => observer.observe(el));
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const blobs = document.querySelectorAll('.blob');
+            const x = (e.clientX / window.innerWidth - 0.5) * 20;
+            const y = (e.clientY / window.innerHeight - 0.5) * 20;
+            blobs.forEach((blob, i) => {
+                const factor = (i + 1) * 0.5;
+                blob.style.transform = `translate(${x * factor}px, ${y * factor}px)`;
+            });
+        });
+    </script>
 </body>
 </html>
