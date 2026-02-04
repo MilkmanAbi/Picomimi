@@ -6,66 +6,86 @@
     <title>Picomimi — The Complete MicroOS for RP2040/RP2350</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #0b0b0f;
-            --bg-elevated: #131318;
-            --bg-card: #1a1a21;
-            --border: rgba(255,255,255,0.08);
-            --border-hover: rgba(255,255,255,0.15);
-            --text: #ffffff;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
-            --accent: #f472b6;
-            --accent-secondary: #a78bfa;
-            --accent-cyan: #22d3ee;
-            --accent-green: #4ade80;
-            --glow: rgba(244, 114, 182, 0.15);
+            --bg-deep: #050507;
+            --bg: #0a0a0e;
+            --bg-elevated: #111116;
+            --bg-card: #16161d;
+            --bg-card-hover: #1c1c25;
+            --border: rgba(255,255,255,0.06);
+            --border-light: rgba(255,255,255,0.1);
+            --border-accent: rgba(236, 72, 153, 0.3);
+            --text: #f4f4f5;
+            --text-secondary: #a1a1aa;
+            --text-muted: #71717a;
+            --accent: #ec4899;
+            --accent-light: #f472b6;
+            --accent-purple: #a855f7;
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --gradient-primary: linear-gradient(135deg, #ec4899 0%, #a855f7 100%);
+            --gradient-cool: linear-gradient(135deg, #06b6d4 0%, #a855f7 100%);
+            --gradient-warm: linear-gradient(135deg, #f59e0b 0%, #ec4899 100%);
+            --glow: 0 0 80px rgba(236, 72, 153, 0.15);
+            --glow-strong: 0 0 120px rgba(236, 72, 153, 0.25);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg);
             color: var(--text);
-            line-height: 1.6;
+            line-height: 1.65;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
 
-        /* Subtle grid background */
-        .bg-grid {
+        /* Background */
+        .bg-noise {
             position: fixed;
             inset: 0;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-            background-size: 80px 80px;
+            opacity: 0.03;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
             pointer-events: none;
             z-index: 0;
         }
 
-        /* Gradient orbs */
-        .orb {
+        .bg-gradient {
             position: fixed;
-            border-radius: 50%;
-            filter: blur(120px);
-            opacity: 0.4;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 20% 0%, rgba(236, 72, 153, 0.12) 0%, transparent 50%),
+                radial-gradient(ellipse 60% 40% at 80% 100%, rgba(168, 85, 247, 0.08) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
-        .orb-1 { width: 500px; height: 500px; background: var(--accent); top: -150px; left: -150px; }
-        .orb-2 { width: 400px; height: 400px; background: var(--accent-secondary); bottom: 20%; right: -100px; }
-        .orb-3 { width: 300px; height: 300px; background: var(--accent-cyan); bottom: -100px; left: 30%; opacity: 0.25; }
+
+        /* Typography */
+        h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+        
+        .gradient-text {
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Layout */
+        .container {
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 0 1.5rem;
+        }
+
+        section {
+            position: relative;
+            z-index: 1;
+        }
 
         /* Navigation */
         nav {
@@ -73,19 +93,20 @@
             top: 0;
             left: 0;
             right: 0;
-            z-index: 100;
-            padding: 1rem 2rem;
+            z-index: 1000;
+            padding: 1rem 1.5rem;
             transition: all 0.3s ease;
         }
 
         nav.scrolled {
-            background: rgba(11, 11, 15, 0.9);
-            backdrop-filter: blur(20px);
+            background: rgba(10, 10, 14, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--border);
         }
 
         .nav-inner {
-            max-width: 1200px;
+            max-width: 1140px;
             margin: 0 auto;
             display: flex;
             justify-content: space-between;
@@ -100,68 +121,58 @@
             color: var(--text);
         }
 
-        .nav-logo img {
-            width: 36px;
-            height: 36px;
+        .nav-logo-img {
+            width: 32px;
+            height: 32px;
             border-radius: 8px;
+            object-fit: cover;
         }
 
         .nav-logo span {
             font-weight: 700;
-            font-size: 1.2rem;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 1.1rem;
         }
 
         .nav-links {
             display: flex;
-            gap: 2rem;
             align-items: center;
+            gap: 2rem;
         }
 
         .nav-links a {
             color: var(--text-secondary);
             text-decoration: none;
-            font-weight: 500;
             font-size: 0.9rem;
+            font-weight: 500;
             transition: color 0.2s;
         }
 
-        .nav-links a:hover {
-            color: var(--text);
-        }
+        .nav-links a:hover { color: var(--text); }
 
         .nav-cta {
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            background: var(--gradient-primary);
             color: var(--text) !important;
-            padding: 0.6rem 1.25rem;
+            padding: 0.55rem 1.15rem;
             border-radius: 8px;
             font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 0.85rem;
         }
 
-        .nav-cta:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px var(--glow);
-        }
-
-        .mobile-toggle {
+        .mobile-menu-btn {
             display: none;
-            flex-direction: column;
-            gap: 5px;
             background: none;
             border: none;
             cursor: pointer;
-            padding: 5px;
+            padding: 8px;
         }
 
-        .mobile-toggle span {
-            width: 22px;
+        .mobile-menu-btn span {
+            display: block;
+            width: 20px;
             height: 2px;
             background: var(--text);
-            transition: all 0.3s;
+            margin: 4px 0;
+            transition: 0.3s;
         }
 
         /* Hero */
@@ -169,27 +180,36 @@
             min-height: 100vh;
             display: flex;
             align-items: center;
-            padding: 8rem 2rem 6rem;
-            position: relative;
-            z-index: 1;
+            padding: 7rem 1.5rem 5rem;
         }
 
         .hero-inner {
-            max-width: 1200px;
+            max-width: 1140px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 4rem;
+            width: 100%;
+        }
+
+        .hero-top {
+            display: flex;
             align-items: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
         }
 
-        .hero-content {
-            animation: fadeUp 0.8s ease;
+        .hero-logo {
+            width: 100px;
+            height: 100px;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 2px solid var(--border-light);
+            flex-shrink: 0;
+            box-shadow: var(--glow);
         }
 
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
+        .hero-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .hero-badge {
@@ -198,16 +218,15 @@
             gap: 8px;
             background: var(--bg-card);
             border: 1px solid var(--border);
-            padding: 0.5rem 1rem;
-            border-radius: 50px;
-            font-size: 0.85rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
             color: var(--text-secondary);
-            margin-bottom: 1.5rem;
         }
 
-        .hero-badge .pulse {
-            width: 8px;
-            height: 8px;
+        .hero-badge .dot {
+            width: 6px;
+            height: 6px;
             background: var(--accent-green);
             border-radius: 50%;
             animation: pulse 2s infinite;
@@ -219,279 +238,265 @@
         }
 
         .hero h1 {
-            font-size: clamp(2.5rem, 5vw, 3.5rem);
-            font-weight: 800;
-            line-height: 1.15;
-            margin-bottom: 1.5rem;
-            letter-spacing: -0.02em;
-        }
-
-        .hero h1 .highlight {
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: clamp(2.25rem, 5vw, 3.25rem);
+            margin-bottom: 1.25rem;
+            max-width: 700px;
         }
 
         .hero-subtitle {
-            font-size: 1.15rem;
+            font-size: 1.1rem;
             color: var(--text-secondary);
-            line-height: 1.7;
+            max-width: 620px;
             margin-bottom: 2rem;
-            max-width: 520px;
+            line-height: 1.75;
         }
+
+        .hero-subtitle strong { color: var(--text); }
 
         .hero-ctas {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             flex-wrap: wrap;
+            margin-bottom: 3rem;
         }
 
         .btn {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 0.9rem 1.75rem;
+            padding: 0.8rem 1.5rem;
             border-radius: 10px;
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             text-decoration: none;
-            transition: all 0.25s ease;
-            cursor: pointer;
+            transition: all 0.2s ease;
             border: none;
+            cursor: pointer;
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            background: var(--gradient-primary);
             color: var(--text);
-            box-shadow: 0 8px 30px var(--glow);
         }
 
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 40px var(--glow);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(236, 72, 153, 0.25);
         }
 
         .btn-secondary {
             background: var(--bg-card);
-            border: 1px solid var(--border);
+            border: 1px solid var(--border-light);
             color: var(--text);
         }
 
         .btn-secondary:hover {
-            border-color: var(--border-hover);
-            background: var(--bg-elevated);
+            background: var(--bg-card-hover);
+            border-color: var(--border-light);
         }
 
-        .hero-visual {
+        .hero-stats {
             display: flex;
-            justify-content: center;
-            align-items: center;
-            position: relative;
-            animation: fadeUp 0.8s ease 0.2s both;
+            gap: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border);
         }
 
-        .hero-logos {
-            display: flex;
-            gap: 1.5rem;
-            align-items: center;
+        .hero-stat {
+            text-align: left;
         }
 
-        .logo-main {
-            width: 180px;
-            height: 180px;
-            border-radius: 32px;
-            overflow: hidden;
-            border: 2px solid var(--border);
-            box-shadow: 0 30px 80px rgba(0,0,0,0.5), 0 0 60px var(--glow);
-            transition: transform 0.4s ease;
-        }
-
-        .logo-main:hover {
-            transform: scale(1.05) rotate(-2deg);
-        }
-
-        .logo-main img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .logo-mascot {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 2px solid var(--border);
-            animation: float 5s ease-in-out infinite;
-        }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-12px); }
-        }
-
-        .logo-mascot img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        /* Vision Section - The Big Pitch */
-        .vision {
-            padding: 6rem 2rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .vision-inner {
-            max-width: 900px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .vision h2 {
-            font-size: clamp(1.8rem, 4vw, 2.5rem);
-            font-weight: 700;
-            margin-bottom: 1.5rem;
-            line-height: 1.3;
-        }
-
-        .vision h2 .strike {
-            text-decoration: line-through;
-            color: var(--text-muted);
-            opacity: 0.6;
-        }
-
-        .vision-text {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            line-height: 1.8;
-            margin-bottom: 2rem;
-        }
-
-        .vision-text strong {
+        .hero-stat-value {
+            font-size: 1.75rem;
+            font-weight: 800;
             color: var(--text);
         }
 
-        /* Pillars - What you get OOTB */
-        .pillars {
-            padding: 4rem 2rem 6rem;
-            position: relative;
-            z-index: 1;
+        .hero-stat-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
         }
 
-        .pillars-inner {
-            max-width: 1200px;
-            margin: 0 auto;
+        /* Section styling */
+        .section {
+            padding: 5rem 1.5rem;
         }
 
-        .pillars-header {
-            text-align: center;
+        .section-dark {
+            background: var(--bg-elevated);
+            border-top: 1px solid var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .section-header {
             margin-bottom: 3rem;
         }
 
-        .pillars-header h2 {
-            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-            font-weight: 700;
+        .section-header.center { text-align: center; }
+
+        .section-header h2 {
+            font-size: clamp(1.5rem, 3vw, 2rem);
             margin-bottom: 0.75rem;
         }
 
-        .pillars-header p {
+        .section-header p {
             color: var(--text-secondary);
             font-size: 1.05rem;
+            max-width: 600px;
         }
 
-        .pillars-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.25rem;
+        .section-header.center p { margin: 0 auto; }
+
+        /* Vision Section */
+        .vision-content {
+            max-width: 800px;
         }
 
-        .pillar {
-            background: var(--bg-elevated);
+        .vision-content h2 {
+            font-size: clamp(1.6rem, 3.5vw, 2.25rem);
+            margin-bottom: 1.5rem;
+        }
+
+        .vision-content h2 .strike {
+            text-decoration: line-through;
+            color: var(--text-muted);
+            opacity: 0.5;
+        }
+
+        .vision-text {
+            font-size: 1.05rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: 1.25rem;
+        }
+
+        .vision-text strong { color: var(--text); }
+
+        .vision-highlight {
+            background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 2rem;
-            transition: all 0.3s ease;
+            border-left: 3px solid var(--accent);
+            border-radius: 0 10px 10px 0;
+            padding: 1.25rem 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .vision-highlight p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .vision-highlight strong { color: var(--accent-light); }
+
+        /* Why Section */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .why-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.25s ease;
+        }
+
+        .why-card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+        }
+
+        .why-card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--bg-elevated);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+
+        .why-card h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .why-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.25s ease;
             position: relative;
             overflow: hidden;
         }
 
-        .pillar::before {
+        .feature-card::before {
             content: '';
             position: absolute;
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, var(--accent), var(--accent-secondary));
+            height: 2px;
+            background: var(--gradient-primary);
             opacity: 0;
-            transition: opacity 0.3s;
+            transition: opacity 0.25s;
         }
 
-        .pillar:hover {
-            border-color: var(--border-hover);
-            transform: translateY(-4px);
+        .feature-card:hover {
+            border-color: var(--border-accent);
+            transform: translateY(-3px);
         }
 
-        .pillar:hover::before {
-            opacity: 1;
-        }
+        .feature-card:hover::before { opacity: 1; }
 
-        .pillar-icon {
-            font-size: 2rem;
+        .feature-icon {
+            font-size: 1.5rem;
             margin-bottom: 1rem;
         }
 
-        .pillar h3 {
-            font-size: 1.15rem;
+        .feature-card h3 {
+            font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.5rem;
         }
 
-        .pillar p {
+        .feature-card p {
             color: var(--text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.875rem;
             line-height: 1.6;
         }
 
-        /* Comparison - Why not X */
-        .comparison {
-            padding: 4rem 2rem 6rem;
-            background: var(--bg-elevated);
-            border-top: 1px solid var(--border);
-            border-bottom: 1px solid var(--border);
-            position: relative;
-            z-index: 1;
-        }
-
-        .comparison-inner {
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-
-        .comparison h2 {
-            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-            font-weight: 700;
-            text-align: center;
-            margin-bottom: 0.75rem;
-        }
-
-        .comparison > p {
-            text-align: center;
-            color: var(--text-secondary);
-            margin-bottom: 2.5rem;
-        }
-
-        .comparison-table {
+        /* Comparison */
+        .comparison-wrapper {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 16px;
+            border-radius: 12px;
             overflow: hidden;
         }
 
-        .comparison-table table {
+        .comparison-table {
             width: 100%;
             border-collapse: collapse;
         }
@@ -501,183 +506,407 @@
             padding: 1rem 1.25rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
         }
 
-        .comparison-table th {
+        .comparison-table thead th {
             background: var(--bg-elevated);
             font-weight: 600;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
+            font-size: 0.8rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            color: var(--text-secondary);
         }
 
-        .comparison-table tr:last-child td {
-            border-bottom: none;
-        }
+        .comparison-table tbody tr:last-child td { border-bottom: none; }
 
         .comparison-table td:first-child {
             font-weight: 500;
             color: var(--text-secondary);
         }
 
-        .comparison-table td.highlight {
-            color: var(--accent);
+        .comparison-table .highlight {
+            color: var(--accent-light);
             font-weight: 600;
         }
 
-        .comparison-table td.muted {
+        .comparison-table .muted {
             color: var(--text-muted);
         }
 
-        /* Architecture - Simple Visual */
-        .architecture {
-            padding: 6rem 2rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .architecture-inner {
-            max-width: 1100px;
-            margin: 0 auto;
+        /* Architecture */
+        .arch-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
+            grid-template-columns: 1fr 1.2fr;
+            gap: 3rem;
             align-items: center;
         }
 
         .arch-diagram {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
+            gap: 6px;
         }
 
         .arch-layer {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1rem 1.25rem;
+            background: #1e1e24;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             text-align: center;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
         }
 
         .arch-layer:hover {
-            border-color: var(--border-hover);
-            transform: scale(1.02);
+            border-color: rgba(255,255,255,0.15);
+            background: #252530;
         }
 
-        .arch-layer.kernel {
-            background: linear-gradient(135deg, rgba(244, 114, 182, 0.1), rgba(167, 139, 250, 0.1));
-            border-color: rgba(244, 114, 182, 0.3);
+        .arch-layer.highlight-pink {
+            background: #1e1e24;
+            border-color: rgba(255,255,255,0.12);
         }
 
-        .arch-layer.fs {
-            background: linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(167, 139, 250, 0.08));
-            border-color: rgba(34, 211, 238, 0.25);
+        .arch-layer.highlight-cyan {
+            background: #1e1e24;
+            border-color: rgba(255,255,255,0.12);
         }
 
         .arch-content h3 {
-            font-size: 1.6rem;
-            font-weight: 700;
+            font-size: 1.4rem;
             margin-bottom: 1rem;
         }
 
         .arch-content p {
             color: var(--text-secondary);
-            font-size: 1.05rem;
+            font-size: 0.95rem;
             line-height: 1.75;
-            margin-bottom: 1rem;
-        }
-
-        /* Getting Started */
-        .getting-started {
-            padding: 6rem 2rem;
-            background: var(--bg-elevated);
-            border-top: 1px solid var(--border);
-            position: relative;
-            z-index: 1;
-        }
-
-        .getting-started-inner {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .getting-started h2 {
-            font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-            font-weight: 700;
-            text-align: center;
             margin-bottom: 0.75rem;
         }
 
-        .getting-started > p {
-            text-align: center;
-            color: var(--text-secondary);
-            margin-bottom: 3rem;
+        /* Roadmap / Upcoming */
+        .roadmap-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
         }
 
+        .roadmap-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.75rem;
+            transition: all 0.25s ease;
+        }
+
+        .roadmap-card:hover {
+            border-color: var(--border-light);
+        }
+
+        .roadmap-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1rem;
+        }
+
+        .roadmap-card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .roadmap-card-icon.pink { background: rgba(236, 72, 153, 0.15); }
+        .roadmap-card-icon.cyan { background: rgba(6, 182, 212, 0.15); }
+        .roadmap-card-icon.purple { background: rgba(168, 85, 247, 0.15); }
+        .roadmap-card-icon.amber { background: rgba(245, 158, 11, 0.15); }
+
+        .roadmap-card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .roadmap-card-tag {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .roadmap-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.65;
+            margin-bottom: 1rem;
+        }
+
+        .roadmap-card ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .roadmap-card li {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .roadmap-card li::before {
+            content: '→';
+            color: var(--accent);
+        }
+
+        /* Getting Started */
         .steps {
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
+            max-width: 700px;
         }
 
         .step {
             display: flex;
-            gap: 1.5rem;
+            gap: 1.25rem;
             align-items: flex-start;
         }
 
         .step-num {
-            width: 44px;
-            height: 44px;
-            background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+            width: 36px;
+            height: 36px;
+            background: var(--gradient-primary);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 0.9rem;
             flex-shrink: 0;
         }
 
         .step-content h4 {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.35rem;
         }
 
         .step-content p {
             color: var(--text-secondary);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             margin-bottom: 0.75rem;
         }
 
         .step-content code {
             display: block;
-            background: var(--bg);
+            background: var(--bg-deep);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 0.9rem 1.25rem;
+            padding: 0.85rem 1.1rem;
             font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--accent-cyan);
             overflow-x: auto;
             white-space: pre;
+            line-height: 1.5;
+        }
+
+        /* Honest Section */
+        .honest-content {
+            max-width: 720px;
+        }
+
+        .honest-content h2 {
+            font-size: clamp(1.4rem, 3vw, 1.75rem);
+            margin-bottom: 1.25rem;
+        }
+
+        .honest-content p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+
+        .honest-content strong { color: var(--text); }
+
+        .honest-points {
+            margin-top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .honest-point {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 1rem 1.25rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+
+        .honest-point-icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .honest-point p {
+            margin: 0;
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        /* Why RP2040/2350 Section */
+        .why-rp-content {
+            max-width: 900px;
+        }
+
+        .why-rp-main > p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            line-height: 1.8;
+            margin-bottom: 1.25rem;
+        }
+
+        .why-rp-main > p strong {
+            color: var(--text);
+        }
+
+        .why-rp-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+            margin: 2rem 0;
+        }
+
+        .why-rp-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .why-rp-card-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .why-rp-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        .why-rp-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.65;
+            margin-bottom: 0.75rem;
+        }
+
+        .why-rp-card p:last-child {
+            margin-bottom: 0;
+        }
+
+        .why-rp-card em {
+            color: var(--accent-light);
+            font-style: normal;
+        }
+
+        .why-rp-quote {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 0 10px 10px 0;
+            padding: 1.25rem 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .why-rp-quote p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .why-rp-quote strong {
+            color: var(--text);
+        }
+
+        /* Related Projects */
+        .related-grid {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .related-link {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.85rem 1.25rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .related-link:hover {
+            border-color: var(--border-light);
+            color: var(--text);
+        }
+
+        .related-link span { font-size: 1rem; }
+
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+            padding: 5rem 1.5rem;
+        }
+
+        .cta-section h2 {
+            font-size: clamp(1.5rem, 3.5vw, 2rem);
+            margin-bottom: 1rem;
+        }
+
+        .cta-section p {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 500px;
+            margin: 0 auto 2rem;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         /* Footer */
         footer {
-            padding: 4rem 2rem;
+            padding: 3rem 1.5rem;
             border-top: 1px solid var(--border);
-            position: relative;
-            z-index: 1;
         }
 
         .footer-inner {
-            max-width: 1200px;
+            max-width: 1140px;
             margin: 0 auto;
         }
 
@@ -685,7 +914,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 2rem;
             flex-wrap: wrap;
             gap: 1.5rem;
         }
@@ -697,14 +926,14 @@
         }
 
         .footer-logo img {
-            width: 40px;
-            height: 40px;
-            border-radius: 10px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
         }
 
         .footer-logo span {
             font-weight: 700;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }
 
         .footer-links {
@@ -716,216 +945,149 @@
         .footer-links a {
             color: var(--text-secondary);
             text-decoration: none;
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             transition: color 0.2s;
         }
 
-        .footer-links a:hover {
-            color: var(--text);
-        }
+        .footer-links a:hover { color: var(--text); }
 
         .footer-bottom {
             text-align: center;
-            padding-top: 2rem;
+            padding-top: 1.5rem;
             border-top: 1px solid var(--border);
         }
 
         .footer-bottom p {
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             margin-bottom: 0.5rem;
         }
 
-        .footer-bottom a {
-            color: var(--accent);
-            text-decoration: none;
-        }
-
-        .author-credit {
+        .footer-author {
             display: inline-flex;
             align-items: center;
             gap: 8px;
             margin-top: 0.75rem;
         }
 
-        .author-credit img {
-            width: 24px;
-            height: 24px;
+        .footer-author img {
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
         }
 
-        .author-credit span {
+        .footer-author span {
             color: var(--text-muted);
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
-        /* Related Projects */
-        .related {
-            padding: 4rem 2rem;
-            position: relative;
-            z-index: 1;
-        }
-
-        .related-inner {
-            max-width: 900px;
-            margin: 0 auto;
-            text-align: center;
-        }
-
-        .related h2 {
-            font-size: 1.4rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-
-        .related p {
-            color: var(--text-secondary);
-            margin-bottom: 1.5rem;
-        }
-
-        .related-links {
-            display: flex;
-            justify-content: center;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .related-link {
-            background: var(--bg-card);
+        .footer-disclaimer {
+            max-width: 500px;
+            margin: 1.25rem auto 0;
+            padding: 1rem;
+            background: rgba(255,255,255,0.02);
             border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 0.75rem 1.25rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
+            border-radius: 8px;
         }
 
-        .related-link:hover {
-            border-color: var(--border-hover);
-            color: var(--text);
+        .footer-disclaimer p {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.6;
+            margin: 0;
+            font-style: italic;
+        }
+
+        .footer-easter-egg {
+            font-size: 0.55rem;
+            color: rgba(255,255,255,0.15);
+            margin-top: 1.5rem;
+            letter-spacing: 0.5px;
         }
 
         /* Responsive */
         @media (max-width: 900px) {
-            .hero-inner {
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            
+            .why-grid,
+            .roadmap-grid { grid-template-columns: 1fr; }
+
+            .why-rp-grid { grid-template-columns: 1fr; }
+            
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            
+            .arch-grid {
                 grid-template-columns: 1fr;
-                text-align: center;
-                gap: 3rem;
+                gap: 2rem;
             }
 
-            .hero-subtitle {
-                margin: 0 auto 2rem;
-            }
-
-            .hero-ctas {
-                justify-content: center;
-            }
-
-            .hero-visual {
-                order: -1;
-            }
-
-            .architecture-inner {
-                grid-template-columns: 1fr;
-                gap: 2.5rem;
-            }
-
-            .nav-links {
-                display: none;
-            }
-
-            .mobile-toggle {
-                display: flex;
-            }
-
-            .comparison-table {
-                overflow-x: auto;
-            }
-
-            .comparison-table table {
-                min-width: 600px;
+            .hero-stats {
+                flex-wrap: wrap;
+                gap: 1.5rem 2.5rem;
             }
         }
 
-        @media (max-width: 600px) {
-            .hero {
-                padding: 6rem 1.25rem 4rem;
-            }
-
-            section {
-                padding: 4rem 1.25rem;
-            }
-
-            .hero-logos {
+        @media (max-width: 640px) {
+            .section { padding: 3.5rem 1.25rem; }
+            .hero { padding: 6rem 1.25rem 4rem; }
+            
+            .features-grid { grid-template-columns: 1fr; }
+            
+            .hero-top {
                 flex-direction: column;
-                gap: 1rem;
+                align-items: flex-start;
+                gap: 1.25rem;
             }
 
-            .logo-main {
-                width: 140px;
-                height: 140px;
-            }
-
-            .logo-mascot {
-                width: 90px;
-                height: 90px;
-            }
-
-            .pillars-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .step {
-                flex-direction: column;
-                gap: 1rem;
-            }
+            .hero-stats { flex-direction: column; gap: 1rem; }
+            
+            .step { flex-direction: column; gap: 0.75rem; }
+            
+            .comparison-wrapper { overflow-x: auto; }
+            .comparison-table { min-width: 550px; }
 
             .footer-top {
                 flex-direction: column;
                 text-align: center;
             }
 
-            .footer-links {
-                justify-content: center;
-            }
+            .footer-links { justify-content: center; }
         }
 
         /* Animations */
-        .fade-in {
+        .fade-up {
             opacity: 0;
-            transform: translateY(25px);
-            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
-        .fade-in.visible {
+        .fade-up.visible {
             opacity: 1;
             transform: translateY(0);
         }
     </style>
 </head>
 <body>
-    <div class="bg-grid"></div>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-    <div class="orb orb-3"></div>
+    <div class="bg-noise"></div>
+    <div class="bg-gradient"></div>
 
     <!-- Navigation -->
     <nav id="nav">
         <div class="nav-inner">
             <a href="#" class="nav-logo">
-                <img src="https://milkmanabi.github.io/Picomimi/assets/Picomimi_Logo.png" alt="Picomimi">
+                <img src="https://raw.githubusercontent.com/MilkmanAbi/Picomimi/main/assets/AxisOS_Redone_01.png" alt="Picomimi" class="nav-logo-img">
                 <span>Picomimi</span>
             </a>
             <div class="nav-links">
                 <a href="#vision">Vision</a>
                 <a href="#features">Features</a>
-                <a href="#architecture">Architecture</a>
+                <a href="#why-rp">Why RP2040/2350</a>
+                <a href="#roadmap">Roadmap</a>
                 <a href="#start">Get Started</a>
-                <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" class="nav-cta">GitHub</a>
+                <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" rel="noopener" class="nav-cta">GitHub →</a>
             </div>
-            <button class="mobile-toggle" id="mobileToggle">
+            <button class="mobile-menu-btn" id="mobileBtn">
                 <span></span>
                 <span></span>
                 <span></span>
@@ -936,111 +1098,185 @@
     <!-- Hero -->
     <section class="hero">
         <div class="hero-inner">
-            <div class="hero-content">
-                <div class="hero-badge">
-                    <span class="pulse"></span>
-                    v15.0 In Development
+            <div class="hero-top">
+                <div class="hero-logo">
+                    <img src="https://raw.githubusercontent.com/MilkmanAbi/Picomimi/main/assets/AxisOS_Redone_01.png" alt="Picomimi Logo">
                 </div>
-                <h1>
-                    A Complete <span class="highlight">MicroOS</span><br>
-                    for RP2040 & RP2350
-                </h1>
-                <p class="hero-subtitle">
-                    Kernel, scheduler, filesystem, shell, and SDK — all in one coherent platform. 
-                    Picomimi gives you a <strong>complete embedded distribution</strong> that's ready 
-                    out of the box for serious projects.
-                </p>
-                <div class="hero-ctas">
-                    <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" class="btn btn-primary">
-                        🚀 Explore on GitHub
-                    </a>
-                    <a href="#start" class="btn btn-secondary">
-                        📖 Get Started
-                    </a>
+                <div class="hero-badge">
+                    <span class="dot"></span>
+                    v15.0 · The Great Refactor
                 </div>
             </div>
-            <div class="hero-visual">
-                <div class="hero-logos">
-                    <div class="logo-main">
-                        <img src="https://milkmanabi.github.io/Picomimi/assets/AxisOS_Redone_01.png" alt="AxisOS">
-                    </div>
-                    <div class="logo-mascot">
-                        <img src="https://milkmanabi.github.io/Picomimi/assets/Picomimi_Mascot.png" alt="Picomimi Mascot">
-                    </div>
+            
+            <h1>
+                The Complete <span class="gradient-text">MicroOS</span> for RP2040 & RP2350
+            </h1>
+            
+            <p class="hero-subtitle">
+                Kernel, scheduler, filesystem, shell, and SDK — <strong>unified in one platform</strong>. 
+                Picomimi is a full embedded distribution designed for complex projects, OTA updates, 
+                runtime inspection, and rapid development. Not another minimal RTOS. Not a superloop.
+            </p>
+            
+            <div class="hero-ctas">
+                <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" rel="noopener" class="btn btn-primary">
+                    Explore on GitHub →
+                </a>
+                <a href="#start" class="btn btn-secondary">
+                    Get Started
+                </a>
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value">Full</div>
+                    <div class="hero-stat-label">OS Distribution</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">Dual-Core</div>
+                    <div class="hero-stat-label">Native Support</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">OTA</div>
+                    <div class="hero-stat-label">A/B Updates</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value">100%</div>
+                    <div class="hero-stat-label">Pico-SDK Native</div>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Vision -->
-    <section class="vision" id="vision">
-        <div class="vision-inner fade-in">
-            <h2>
-                <span class="strike">Just another RTOS</span><br>
-                A full embedded distribution
-            </h2>
-            <p class="vision-text">
-                Most embedded "operating systems" give you a scheduler and wish you luck. 
-                You're left stitching together filesystems, shells, memory managers, and HALs 
-                from a dozen incompatible sources.
-            </p>
-            <p class="vision-text">
-                <strong>Picomimi is different.</strong> It's a complete, coherent platform where 
-                tasks, memory, peripherals, and IPC can be <strong>observed and controlled at runtime</strong>. 
-                Everything works together because everything was built together.
-            </p>
+    <section class="section" id="vision">
+        <div class="container">
+            <div class="vision-content fade-up">
+                <h2>
+                    <span class="strike">Just another RTOS</span><br>
+                    A complete embedded distribution
+                </h2>
+                
+                <p class="vision-text">
+                    Most embedded "operating systems" hand you a scheduler, maybe a semaphore or two, 
+                    and wish you luck. You spend weeks stitching together filesystems from this repo, 
+                    memory managers from that blog post, shells that kinda work, and HALs that fight 
+                    with everything else. The result? A fragile Frankenstein that breaks when you 
+                    look at it wrong.
+                </p>
+                
+                <p class="vision-text">
+                    <strong>Picomimi takes a different approach.</strong> It's a unified platform where 
+                    the kernel, scheduler, filesystem, memory manager, shell, and HAL were all designed 
+                    to work together. You get a persistent, inspectable system where tasks, memory, 
+                    peripherals, and IPC can be observed and controlled at runtime — not just deployed 
+                    and prayed over.
+                </p>
+
+                <div class="vision-highlight">
+                    <p>
+                        Think of it like this: <strong>FreeRTOS gives you an engine.</strong> 
+                        Arduino gives you a go-kart. <strong>Picomimi gives you the whole car</strong> — 
+                        engine, transmission, dashboard, GPS, and a mechanic's toolkit in the trunk.
+                    </p>
+                </div>
+
+                <p class="vision-text">
+                    This isn't about being "better" than FreeRTOS or more convenient than Arduino. 
+                    It's about being <strong>complete</strong>. When you need to debug why a task 
+                    is starving, inspect memory allocation patterns, trace IPC flows, or push an 
+                    OTA update without bricking devices — Picomimi has you covered out of the box.
+                </p>
+            </div>
         </div>
     </section>
 
-    <!-- Pillars -->
-    <section class="pillars" id="features">
-        <div class="pillars-inner">
-            <div class="pillars-header fade-in">
-                <h2>Out of the Box, You Get</h2>
-                <p>Everything you need for complex embedded systems, nothing you don't.</p>
+    <!-- Why Picomimi -->
+    <section class="section section-dark">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>Why Build on Picomimi?</h2>
+                <p>The convenience of having your MicroOS and development platform as one unified base.</p>
             </div>
-            <div class="pillars-grid">
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">📦</div>
-                    <h3>Complete Platform</h3>
-                    <p>Kernel, scheduler, filesystem, shell, SDK — unified and working together from day one.</p>
+            
+            <div class="why-grid">
+                <div class="why-card fade-up">
+                    <div class="why-card-icon">📦</div>
+                    <h3>Out-of-the-Box Complete</h3>
+                    <p>Stop assembling pieces. Kernel, filesystem, shell, SDK, memory management — everything works together from day one. Start building your actual project, not your infrastructure.</p>
                 </div>
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">🔍</div>
-                    <h3>Fully Inspectable</h3>
-                    <p>Interactive shell for real-time inspection. See tasks, memory, IPC, and peripherals — live.</p>
+                <div class="why-card fade-up">
+                    <div class="why-card-icon">🔍</div>
+                    <h3>Runtime Inspectable</h3>
+                    <p>Interactive shell for real-time system inspection. See task states, memory usage, IPC flows, and peripheral status live. Debug without reflashing. Understand without guessing.</p>
                 </div>
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">🔄</div>
-                    <h3>OTA Ready</h3>
-                    <p>PMFS with dual firmware banks for safe over-the-air updates. A/B partitions built in.</p>
+                <div class="why-card fade-up">
+                    <div class="why-card-icon">🔄</div>
+                    <h3>OTA-Ready Architecture</h3>
+                    <p>PMFS with dual A/B firmware banks built in. Safe updates, rollback capability, and crash recovery aren't afterthoughts — they're foundational to the design.</p>
                 </div>
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">⚡</div>
-                    <h3>Dual-Core Aware</h3>
-                    <p>O(1) scheduler designed for RP2040's unique dual-core architecture from the ground up.</p>
+                <div class="why-card fade-up">
+                    <div class="why-card-icon">⚡</div>
+                    <h3>Convenient Development</h3>
+                    <p>Clean APIs, sensible defaults, and a project structure that scales. Picomimi gives you rapid development without sacrificing the control you need for production systems.</p>
                 </div>
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">📁</div>
-                    <h3>Native Filesystem</h3>
-                    <p>PMFS journaling filesystem with write caching, crash recovery, and tmpfs support.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="section" id="features">
+        <div class="container">
+            <div class="section-header center fade-up">
+                <h2>What You Get</h2>
+                <p>Every component optimized for RP2040/RP2350's architecture and constraints.</p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">⚙️</div>
+                    <h3>O(1) Scheduler</h3>
+                    <p>Preemptive multitasking with priority queues across both cores. Designed specifically for RP2040/2350's dual-core architecture.</p>
                 </div>
-                <div class="pillar fade-in">
-                    <div class="pillar-icon">🛡️</div>
-                    <h3>Resource Ownership</h3>
-                    <p>Per-task memory accounting with automatic cleanup. No orphaned resources, ever.</p>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">📁</div>
+                    <h3>PMFS Filesystem</h3>
+                    <p>Journaling filesystem with write caching, dual OTA banks, and tmpfs. Power-safe and crash-recoverable by design.</p>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">🖥️</div>
+                    <h3>Interactive Shell</h3>
+                    <p>Real-time system control and inspection. Task management, filesystem access, live debugging — all via USB serial.</p>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">🧠</div>
+                    <h3>Memory Management</h3>
+                    <p>Per-task heap tracking with automatic cleanup on task exit. OOM handling and resource accounting built in.</p>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">💬</div>
+                    <h3>Priority-Aware IPC</h3>
+                    <p>Message passing, signals, and shared memory primitives. Deterministic inter-task communication with priority inheritance.</p>
+                </div>
+                <div class="feature-card fade-up">
+                    <div class="feature-icon">🔌</div>
+                    <h3>Clean HAL</h3>
+                    <p>Hardware abstraction that keeps kernel logic independent of MCU registers. Portable, testable, maintainable.</p>
                 </div>
             </div>
         </div>
     </section>
 
     <!-- Comparison -->
-    <section class="comparison">
-        <div class="comparison-inner">
-            <h2 class="fade-in">How Picomimi Compares</h2>
-            <p class="fade-in">Not better or worse — different in philosophy.</p>
-            <div class="comparison-table fade-in">
-                <table>
+    <section class="section section-dark">
+        <div class="container">
+            <div class="section-header center fade-up">
+                <h2>Different Philosophy</h2>
+                <p>Not better or worse — different in what it provides out of the box.</p>
+            </div>
+
+            <div class="comparison-wrapper fade-up">
+                <table class="comparison-table">
                     <thead>
                         <tr>
                             <th>Aspect</th>
@@ -1058,13 +1294,13 @@
                         </tr>
                         <tr>
                             <td>Filesystem</td>
-                            <td class="muted">3rd party</td>
+                            <td class="muted">Third-party</td>
                             <td class="muted">Library</td>
                             <td class="highlight">Native PMFS (journaled)</td>
                         </tr>
                         <tr>
                             <td>Shell</td>
-                            <td class="muted">3rd party</td>
+                            <td class="muted">Third-party</td>
                             <td class="muted">None</td>
                             <td class="highlight">Interactive, built-in</td>
                         </tr>
@@ -1073,6 +1309,12 @@
                             <td class="muted">Tasks</td>
                             <td class="muted">Single thread</td>
                             <td class="highlight">Tasks + resource ownership</td>
+                        </tr>
+                        <tr>
+                            <td>OTA Support</td>
+                            <td class="muted">Manual integration</td>
+                            <td class="muted">None</td>
+                            <td class="highlight">A/B banks, native</td>
                         </tr>
                         <tr>
                             <td>Focus</td>
@@ -1087,61 +1329,304 @@
     </section>
 
     <!-- Architecture -->
-    <section class="architecture" id="architecture">
-        <div class="architecture-inner">
-            <div class="arch-diagram fade-in">
-                <div class="arch-layer">📱 Apps & User Tasks</div>
-                <div class="arch-layer">🖥️ Shell & SDK</div>
-                <div class="arch-layer fs">📁 PMFS Filesystem</div>
-                <div class="arch-layer">💬 IPC & Memory Manager</div>
-                <div class="arch-layer kernel">⚙️ O(1) Scheduler (Dual Core)</div>
-                <div class="arch-layer">🔌 Hardware Abstraction Layer</div>
+    <section class="section" id="architecture">
+        <div class="container">
+            <div class="arch-grid">
+                <div class="arch-diagram fade-up">
+                    <div class="arch-layer">📱 Apps & User Tasks</div>
+                    <div class="arch-layer">🖥️ Shell & SDK</div>
+                    <div class="arch-layer highlight-cyan">📁 PMFS Filesystem</div>
+                    <div class="arch-layer">💬 IPC & Memory Manager</div>
+                    <div class="arch-layer highlight-pink">⚙️ O(1) Scheduler (Dual Core)</div>
+                    <div class="arch-layer">🔌 Hardware Abstraction Layer</div>
+                    <div class="arch-layer">🎛️ Pico-SDK / RP2040/2350 Hardware</div>
+                </div>
+                <div class="arch-content fade-up">
+                    <h3>Unix-Like, Microcontroller-Sized</h3>
+                    <p>
+                        Picomimi's architecture resembles a small Unix-like embedded environment: 
+                        kernel, filesystem, shell, services, and user-space tasks as a unified system.
+                    </p>
+                    <p>
+                        Clean separation between layers means you can understand, modify, and extend 
+                        any part without breaking others. The HAL keeps kernel logic independent of 
+                        MCU registers — the same code structure works whether you're debugging on 
+                        hardware or testing components in isolation.
+                    </p>
+                    <p>
+                        Built natively on <strong>pico-sdk</strong> for direct hardware access and 
+                        optimal performance. No Arduino core overhead. No abstraction layers fighting 
+                        each other. Just clean, efficient C/C++ that compiles to tight binaries.
+                    </p>
+                </div>
             </div>
-            <div class="arch-content fade-in">
-                <h3>Unix-Like, Microcontroller-Sized</h3>
+        </div>
+    </section>
+
+    <!-- Roadmap -->
+    <section class="section section-dark" id="roadmap">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>What's Coming</h2>
+                <p>Picomimi is a foundation. These projects extend it into new capabilities.</p>
+            </div>
+
+            <div class="roadmap-grid">
+                <div class="roadmap-card fade-up">
+                    <div class="roadmap-card-header">
+                        <div class="roadmap-card-icon pink">🔧</div>
+                        <div>
+                            <h3>MimiC</h3>
+                            <div class="roadmap-card-tag">On-Device Compiler</div>
+                        </div>
+                    </div>
+                    <p>
+                        An AOT (ahead-of-time) C compiler that runs directly on RP2040/RP2350 silicon. 
+                        Targeting C89/C99-style code, MimiC compiles and executes binaries on the device 
+                        itself — no host toolchain required for simple programs.
+                    </p>
+                    <ul>
+                        <li>On-device compilation and binary execution</li>
+                        <li>C89/C99 subset for embedded constraints</li>
+                        <li>REPL-style development directly on hardware</li>
+                    </ul>
+                </div>
+
+                <div class="roadmap-card fade-up">
+                    <div class="roadmap-card-header">
+                        <div class="roadmap-card-icon cyan">🌐</div>
+                        <div>
+                            <h3>PicoNET</h3>
+                            <div class="roadmap-card-tag">Network Stack</div>
+                        </div>
+                    </div>
+                    <p>
+                        A full-fledged network extension for Picomimi. OTA updates over WiFi, data streaming, 
+                        remote device management, and fleet orchestration. Built for Pico W and external 
+                        network modules.
+                    </p>
+                    <ul>
+                        <li>Network-capable OTA with rollback</li>
+                        <li>Data streaming and telemetry</li>
+                        <li>Remote shell and device management</li>
+                    </ul>
+                </div>
+
+                <div class="roadmap-card fade-up">
+                    <div class="roadmap-card-header">
+                        <div class="roadmap-card-icon purple">🛡️</div>
+                        <div>
+                            <h3>MimiSafeMEM</h3>
+                            <div class="roadmap-card-tag">Memory Protection</div>
+                        </div>
+                    </div>
+                    <p>
+                        Software-enforced memory protection for RP2040/RP2350 despite the lack of hardware MMU. 
+                        Task isolation, bounds checking, and memory access policies — defense in depth for 
+                        safety-critical applications.
+                    </p>
+                    <ul>
+                        <li>Task memory isolation without MMU</li>
+                        <li>Bounds checking and access policies</li>
+                        <li>Fault detection and recovery</li>
+                    </ul>
+                </div>
+
+                <div class="roadmap-card fade-up">
+                    <div class="roadmap-card-header">
+                        <div class="roadmap-card-icon amber">🧰</div>
+                        <div>
+                            <h3>Mimi-SDK</h3>
+                            <div class="roadmap-card-tag">Development Platform</div>
+                        </div>
+                    </div>
+                    <p>
+                        The complete development platform for Picomimi. Auto-include the kernel, select only 
+                        the modules you need, scaffold apps/drivers/services, and build optimized binaries 
+                        with one command.
+                    </p>
+                    <ul>
+                        <li>Modular kernel configuration</li>
+                        <li>Project scaffolding and templates</li>
+                        <li>Integrated build system and tooling</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why RP2040/2350 -->
+    <section class="section" id="why-rp">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>Why RP2040/2350?</h2>
+                <p>"Why not STM32? Why not ESP32? Those are more powerful."</p>
+            </div>
+
+            <div class="why-rp-content fade-up">
+                <div class="why-rp-main">
+                    <p>
+                        On paper, RP2040/2350 looks mediocre. Dual Cortex-M0+ at 133MHz, 264KB SRAM, no 
+                        built-in WiFi. STM32 has more variants, more peripherals, faster cores. ESP32 
+                        has WiFi and Bluetooth baked in. So why build a MicroOS specifically for 
+                        Raspberry Pi silicon?
+                    </p>
+
+                    <p>
+                        <strong>Because RP2040/2350 gives you something the others don't: complete ownership of your silicon.</strong>
+                    </p>
+
+                    <div class="why-rp-grid">
+                        <div class="why-rp-card">
+                            <div class="why-rp-card-icon">🔓</div>
+                            <h4>You Own the Metal</h4>
+                            <p>
+                                ESP32 ships with FreeRTOS baked into the SDK. You're a guest in someone 
+                                else's house. Want to replace the scheduler? Good luck. Want to understand 
+                                what's actually running on your chip? Prepare to dig through Espressif's 
+                                proprietary layers.
+                            </p>
+                            <p>
+                                RP2040/2350 boots <em>your</em> code. Picomimi doesn't hesitate to let you own 
+                                your silicon — every cycle, every register, every interrupt is yours to control.
+                            </p>
+                        </div>
+
+                        <div class="why-rp-card">
+                            <div class="why-rp-card-icon">🎯</div>
+                            <h4>ARM, But Accessible</h4>
+                            <p>
+                                ARM Cortex-M is the industry standard for a reason. Massive toolchain support, 
+                                battle-tested compilers, debugging tools that actually work. RP2040/2350 
+                                gives you ARM's ecosystem without the complexity tax of STM32's 47 different 
+                                product lines and HAL configurations.
+                            </p>
+                            <p>
+                                One chip family. One SDK. One set of docs. And those docs are actually 
+                                <em>good</em> — the RP2040/2350 datasheets are a masterclass in documentation.
+                            </p>
+                        </div>
+
+                        <div class="why-rp-card">
+                            <div class="why-rp-card-icon">⚡</div>
+                            <h4>Deceptively Capable</h4>
+                            <p>
+                                Dual cores with deterministic timing. PIO state machines that can bit-bang 
+                                almost any protocol at hardware speeds. DMA that actually works without 
+                                fighting the silicon. 133MHz doesn't sound impressive until you realize 
+                                there's no RTOS overhead eating your cycles.
+                            </p>
+                            <p>
+                                With Picomimi, you're running <em>your</em> scheduler, <em>your</em> memory 
+                                manager, <em>your</em> priorities. That 133MHz goes a lot further when you 
+                                control where every cycle goes.
+                            </p>
+                        </div>
+
+                        <div class="why-rp-card">
+                            <div class="why-rp-card-icon">💰</div>
+                            <h4>Cheap & Scalable</h4>
+                            <p>
+                                $4 for a Pico. $1 for the bare RP2040/2350 chip. Build prototypes without 
+                                worrying about burning expensive dev boards. Scale to production without 
+                                licensing fees or vendor lock-in. Same ecosystem across the family.
+                            </p>
+                            <p>
+                                Huge community, mountains of existing libraries, and compatibility with 
+                                everything from logic analyzers to $2 display modules. The ecosystem 
+                                matters as much as the silicon.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="why-rp-quote">
+                        <p>
+                            <strong>The point isn't that RP2040/2350 is "better" than STM32 or ESP32.</strong> 
+                            It's that RP2040/2350 is the right foundation for what Picomimi is trying to be: 
+                            a platform where you have absolute control, where the OS serves you instead 
+                            of the other way around, and where "understanding your system" is actually achievable.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Honest Take -->
+    <section class="section section-dark">
+        <div class="container">
+            <div class="honest-content fade-up">
+                <h2>Let's Be Honest</h2>
+                
                 <p>
-                    Picomimi's architecture resembles a small Unix-like embedded environment: 
-                    kernel, filesystem, shell, services, and user-space tasks as a unified system.
+                    Picomimi is a passion project built by a polytechnic student who struggles with 
+                    Computer Engineering coursework. It started because someone handed me a few 
+                    RP2040/2350 boards and I started building things. That's it. No corporate backing, 
+                    no funded research team, no grand institutional support.
                 </p>
+                
                 <p>
-                    Clean separation between layers means you can understand, modify, and extend 
-                    any part without breaking others. Hardware abstraction keeps kernel logic 
-                    independent of MCU registers.
+                    <strong>Development is slow.</strong> This is a nights-and-weekends project that 
+                    competes with assignments, exams, and life. Major features take months, not weeks. 
+                    The v15 refactor has been ongoing because rewriting 12,000 lines of monolithic 
+                    code into clean modules while learning proper embedded architecture isn't fast work.
                 </p>
+
+                <p>
+                    But, I see some potential.
+                </p>
+
+                <div class="honest-points">
+                    <div class="honest-point">
+                        <div class="honest-point-icon">🎯</div>
+                        <p><strong>"Only targets Raspberry Pi silicon"</strong> — Yes, intentionally. RP2040/RP2350 are cheap, well-documented, and widely available. Focused scope beats scattered mediocrity. Better to do one platform excellently than five poorly.</p>
+                    </div>
+                    <div class="honest-point">
+                        <div class="honest-point-icon">🎓</div>
+                        <p><strong>"High schooler project"</strong> — Polytechnic, actually. And the codebase has grown from a 700-line scheduler into a 12,000+ line microOS with journaling filesystem, shell, IPC, and dual-core support. Learning by building real systems beats toy examples.</p>
+                    </div>
+                    <div class="honest-point">
+                        <div class="honest-point-icon">⏱️</div>
+                        <p><strong>"Slow development"</strong> — True. The architecture is still being reworked — it's a massive work in progress. But it aims to be proper. Some projects ship fast and die fast. This one is building foundations, even if they take a while to set.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </section>
 
     <!-- Getting Started -->
-    <section class="getting-started" id="start">
-        <div class="getting-started-inner">
-            <h2 class="fade-in">Get Started</h2>
-            <p class="fade-in">Clone, build, flash — that's it.</p>
+    <section class="section" id="start">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>Get Started</h2>
+                <p>Clone, build, flash, connect — straightforward pico-sdk workflow.</p>
+            </div>
+
             <div class="steps">
-                <div class="step fade-in">
+                <div class="step fade-up">
                     <div class="step-num">1</div>
                     <div class="step-content">
                         <h4>Clone the Repository</h4>
-                        <p>Grab the latest source:</p>
+                        <p>Grab the latest source from GitHub:</p>
                         <code>git clone https://github.com/MilkmanAbi/Picomimi.git
 cd Picomimi</code>
                     </div>
                 </div>
-                <div class="step fade-in">
+                <div class="step fade-up">
                     <div class="step-num">2</div>
                     <div class="step-content">
                         <h4>Build with CMake</h4>
-                        <p>Standard pico-sdk workflow:</p>
-                        <code>mkdir build && cd build
-cmake ..
-make</code>
+                        <p>Standard pico-sdk workflow. Set your SDK path and compile:</p>
+                        <code>export PICO_SDK_PATH=/path/to/pico-sdk
+mkdir build && cd build
+cmake .. && make -j$(nproc)</code>
                     </div>
                 </div>
-                <div class="step fade-in">
+                <div class="step fade-up">
                     <div class="step-num">3</div>
                     <div class="step-content">
                         <h4>Flash & Connect</h4>
-                        <p>Copy the UF2, then connect to the shell:</p>
+                        <p>Hold BOOTSEL, plug in your Pico, copy the UF2, then connect:</p>
                         <code>cp picomimi.uf2 /media/$USER/RPI-RP2/
 picocom /dev/ttyACM0 -b 115200</code>
                     </div>
@@ -1151,14 +1636,42 @@ picocom /dev/ttyACM0 -b 115200</code>
     </section>
 
     <!-- Related Projects -->
-    <section class="related">
-        <div class="related-inner fade-in">
-            <h2>Related Projects</h2>
-            <p>Picomimi is part of a growing ecosystem.</p>
-            <div class="related-links">
-                <a href="https://github.com/MilkmanAbi/AxisOS" target="_blank" class="related-link">AxisOS</a>
-                <a href="https://github.com/MilkmanAbi/MimiC" target="_blank" class="related-link">MimiC Compiler</a>
-                <a href="https://github.com/MilkmanAbi/pico-governor" target="_blank" class="related-link">Pico-Governor</a>
+    <section class="section section-dark">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>Related Projects</h2>
+                <p>Picomimi is part of a growing ecosystem of embedded tools.</p>
+            </div>
+
+            <div class="related-grid fade-up">
+                <a href="https://github.com/MilkmanAbi/AxisOS" target="_blank" rel="noopener" class="related-link">
+                    <span>🌀</span> AxisOS
+                </a>
+                <a href="https://github.com/MilkmanAbi/MimiC" target="_blank" rel="noopener" class="related-link">
+                    <span>🔧</span> MimiC Compiler
+                </a>
+                <a href="https://github.com/MilkmanAbi/pico-governor" target="_blank" rel="noopener" class="related-link">
+                    <span>⚡</span> Pico-Governor
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="container fade-up">
+            <h2>Ready to Try Something Different?</h2>
+            <p>
+                Picomimi won't be for everyone. But if you want a complete MicroOS that's 
+                inspectable, OTA-ready, and designed as a unified platform — it might be exactly what you need.
+            </p>
+            <div class="cta-buttons">
+                <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" rel="noopener" class="btn btn-primary">
+                    Explore on GitHub →
+                </a>
+                <a href="https://github.com/MilkmanAbi/Picomimi/wiki" target="_blank" rel="noopener" class="btn btn-secondary">
+                    Read the Wiki
+                </a>
             </div>
         </div>
     </section>
@@ -1168,73 +1681,83 @@ picocom /dev/ttyACM0 -b 115200</code>
         <div class="footer-inner">
             <div class="footer-top">
                 <div class="footer-logo">
-                    <img src="https://milkmanabi.github.io/Picomimi/assets/Picomimi_Logo.png" alt="Picomimi">
+                    <img src="https://raw.githubusercontent.com/MilkmanAbi/Picomimi/main/assets/AxisOS_Redone_01.png" alt="Picomimi">
                     <span>Picomimi</span>
                 </div>
                 <div class="footer-links">
-                    <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank">GitHub</a>
-                    <a href="https://github.com/MilkmanAbi/Picomimi/wiki" target="_blank">Wiki</a>
-                    <a href="https://github.com/MilkmanAbi/Picomimi/issues" target="_blank">Issues</a>
-                    <a href="https://github.com/MilkmanAbi/Picomimi/releases" target="_blank">Releases</a>
+                    <a href="https://github.com/MilkmanAbi/Picomimi" target="_blank" rel="noopener">GitHub</a>
+                    <a href="https://github.com/MilkmanAbi/Picomimi/wiki" target="_blank" rel="noopener">Wiki</a>
+                    <a href="https://github.com/MilkmanAbi/Picomimi/issues" target="_blank" rel="noopener">Issues</a>
+                    <a href="https://github.com/MilkmanAbi/Picomimi/releases" target="_blank" rel="noopener">Releases</a>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>Made with ambition, persistence, and a love for embedded systems</p>
-                <p>© 2024-2026 • MIT License</p>
-                <div class="author-credit">
-                    <img src="https://milkmanabi.github.io/Picomimi/assets/MilkmanAbi.png" alt="MilkmanAbi">
-                    <span>by Abinaash</span>
+                <p>Made with ambition, persistence, and a love for embedded systems, and too much coffee ~♡</p>
+                <p>© 2024–2026 · MIT License</p>
+                <div class="footer-author">
+                    <img src="https://raw.githubusercontent.com/MilkmanAbi/Picomimi/main/assets/MilkmanAbi.png" alt="MilkmanAbi">
+                    <span>by Abinaash Abirama Sundaram</span>
                 </div>
+                <div class="footer-disclaimer">
+                    <p>
+                        This is a hobbyist project — something I want to make and bring to life. 
+                        It's not the best, or even good really. It's a mess. A mess that I'm trying 
+                        to turn into a beautiful piece of work.
+                    </p>
+                </div>
+                <p class="footer-easter-egg">I cant code HTML</p>
             </div>
         </div>
     </footer>
 
     <script>
-        // Navbar scroll effect
+        // Navbar scroll
         const nav = document.getElementById('nav');
         window.addEventListener('scroll', () => {
             nav.classList.toggle('scrolled', window.scrollY > 50);
         });
 
-        // Intersection Observer for fade-in animations
-        const fadeElements = document.querySelectorAll('.fade-in');
+        // Intersection Observer for animations
+        const fadeEls = document.querySelectorAll('.fade-up');
         const observer = new IntersectionObserver((entries) => {
-            entries.forEach((entry, index) => {
+            entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    setTimeout(() => {
-                        entry.target.classList.add('visible');
-                    }, index * 100);
+                    entry.target.classList.add('visible');
                 }
             });
-        }, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+        }, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+        fadeEls.forEach(el => observer.observe(el));
 
-        fadeElements.forEach(el => observer.observe(el));
-
-        // Smooth scroll for anchor links
+        // Smooth scroll
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function(e) {
                 e.preventDefault();
                 const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
+                if (target) target.scrollIntoView({ behavior: 'smooth' });
             });
         });
 
-        // Mobile menu (simple toggle)
-        const mobileToggle = document.getElementById('mobileToggle');
-        mobileToggle.addEventListener('click', () => {
-            const links = document.querySelector('.nav-links');
-            links.style.display = links.style.display === 'flex' ? 'none' : 'flex';
-            links.style.position = 'absolute';
-            links.style.top = '100%';
-            links.style.left = '0';
-            links.style.right = '0';
-            links.style.background = 'rgba(11, 11, 15, 0.98)';
-            links.style.flexDirection = 'column';
-            links.style.padding = '1.5rem';
-            links.style.gap = '1rem';
-            links.style.borderBottom = '1px solid var(--border)';
+        // Mobile menu toggle
+        const mobileBtn = document.getElementById('mobileBtn');
+        const navLinks = document.querySelector('.nav-links');
+        let menuOpen = false;
+
+        mobileBtn.addEventListener('click', () => {
+            menuOpen = !menuOpen;
+            if (menuOpen) {
+                navLinks.style.display = 'flex';
+                navLinks.style.position = 'absolute';
+                navLinks.style.top = '100%';
+                navLinks.style.left = '0';
+                navLinks.style.right = '0';
+                navLinks.style.flexDirection = 'column';
+                navLinks.style.background = 'rgba(10, 10, 14, 0.98)';
+                navLinks.style.padding = '1.5rem';
+                navLinks.style.gap = '1rem';
+                navLinks.style.borderBottom = '1px solid var(--border)';
+            } else {
+                navLinks.style.display = 'none';
+            }
         });
     </script>
 </body>
