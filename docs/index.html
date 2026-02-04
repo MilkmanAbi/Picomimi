@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Picomimi — The Complete MicroOS for RP2040/RP2350</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🐱</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -773,6 +774,67 @@
             max-width: 900px;
         }
 
+        /* Use Cases Section */
+        .use-cases-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+        }
+
+        .use-case-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.25s ease;
+        }
+
+        .use-case-card:hover {
+            border-color: var(--border-light);
+            transform: translateY(-2px);
+        }
+
+        .use-case-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .use-case-card h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.6rem;
+        }
+
+        .use-case-card p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            line-height: 1.65;
+            margin: 0;
+        }
+
+        .use-case-card a {
+            color: var(--accent-light);
+            text-decoration: none;
+        }
+
+        .use-case-card a:hover {
+            text-decoration: underline;
+        }
+
+        .use-cases-note {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .use-cases-note p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+            font-style: italic;
+        }
+
         .why-rp-main > p {
             color: var(--text-secondary);
             font-size: 1.05rem;
@@ -1014,6 +1076,8 @@
             .roadmap-grid { grid-template-columns: 1fr; }
 
             .why-rp-grid { grid-template-columns: 1fr; }
+
+            .use-cases-grid { grid-template-columns: repeat(2, 1fr); }
             
             .features-grid { grid-template-columns: repeat(2, 1fr); }
             
@@ -1033,6 +1097,8 @@
             .hero { padding: 6rem 1.25rem 4rem; }
             
             .features-grid { grid-template-columns: 1fr; }
+
+            .use-cases-grid { grid-template-columns: 1fr; }
             
             .hero-top {
                 flex-direction: column;
@@ -1082,6 +1148,7 @@
             <div class="nav-links">
                 <a href="#vision">Vision</a>
                 <a href="#features">Features</a>
+                <a href="#use-cases">Use Cases</a>
                 <a href="#why-rp">Why RP2040/2350</a>
                 <a href="#roadmap">Roadmap</a>
                 <a href="#start">Get Started</a>
@@ -1333,13 +1400,13 @@
         <div class="container">
             <div class="arch-grid">
                 <div class="arch-diagram fade-up">
-                    <div class="arch-layer">📱 Apps & User Tasks</div>
-                    <div class="arch-layer">🖥️ Shell & SDK</div>
-                    <div class="arch-layer highlight-cyan">📁 PMFS Filesystem</div>
-                    <div class="arch-layer">💬 IPC & Memory Manager</div>
-                    <div class="arch-layer highlight-pink">⚙️ O(1) Scheduler (Dual Core)</div>
-                    <div class="arch-layer">🔌 Hardware Abstraction Layer</div>
-                    <div class="arch-layer">🎛️ Pico-SDK / RP2040/2350 Hardware</div>
+                    <div class="arch-layer">Apps & User Tasks</div>
+                    <div class="arch-layer">Shell & SDK</div>
+                    <div class="arch-layer highlight-cyan">PMFS Filesystem</div>
+                    <div class="arch-layer">IPC & Memory Manager</div>
+                    <div class="arch-layer highlight-pink">O(1) Scheduler (Dual Core)</div>
+                    <div class="arch-layer">Hardware Abstraction Layer</div>
+                    <div class="arch-layer">Pico-SDK / RP2040/2350 Hardware</div>
                 </div>
                 <div class="arch-content fade-up">
                     <h3>Unix-Like, Microcontroller-Sized</h3>
@@ -1455,8 +1522,88 @@
         </div>
     </section>
 
+    <!-- Use Cases -->
+    <section class="section" id="use-cases">
+        <div class="container">
+            <div class="section-header fade-up">
+                <h2>Where Picomimi Might Fit</h2>
+                <p>Some ideas on where a complete MicroOS could be useful. No promises — just possibilities.</p>
+            </div>
+
+            <div class="use-cases-grid">
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">📊</div>
+                    <h4>Dashboards & Displays</h4>
+                    <p>
+                        Interactive status panels, info displays, or control interfaces. The shell 
+                        lets you debug UI issues live without reflashing. Swap screens, tweak layouts, 
+                        watch memory — all at runtime.
+                    </p>
+                </div>
+
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">📡</div>
+                    <h4>Monitoring Systems</h4>
+                    <p>
+                        Environmental sensors, equipment monitors, data loggers. PMFS gives you 
+                        persistent storage that survives power cuts. OTA means you can push fixes 
+                        to devices in the field.
+                    </p>
+                </div>
+
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">🎛️</div>
+                    <h4>Complex Controllers</h4>
+                    <p>
+                        Multi-axis motion, process control, automation systems. Dual-core scheduling 
+                        lets you separate time-critical control loops from UI and communication tasks. 
+                        Priority-aware IPC keeps things deterministic.
+                    </p>
+                </div>
+
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">🔬</div>
+                    <h4>Sensor Arrays</h4>
+                    <p>
+                        Multiple sensors, multiple protocols, one coherent system. The HAL abstracts 
+                        the hardware, the shell lets you inspect readings live, and per-task memory 
+                        tracking helps you find that sensor driver that's leaking.
+                    </p>
+                </div>
+
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">🔗</div>
+                    <h4>Interconnected Devices</h4>
+                    <p>
+                        Nodes that talk to each other, gateways, mesh participants. IPC primitives 
+                        work locally; PicoNET (coming soon) extends that to the network. Same mental 
+                        model, different transport.
+                    </p>
+                </div>
+
+                <div class="use-case-card fade-up">
+                    <div class="use-case-icon">⌚</div>
+                    <h4>Wearables & Portables</h4>
+                    <p>
+                        Small form factor, battery-conscious, user-facing. The 
+                        <a href="https://github.com/MilkmanAbi/AxisOS" target="_blank" rel="noopener">AxisOS</a> 
+                        project is exploring Picomimi as the foundation for a smartwatch — because 
+                        why not have a real OS on your wrist?
+                    </p>
+                </div>
+            </div>
+
+            <div class="use-cases-note fade-up">
+                <p>
+                    These aren't guarantees — Picomimi is still evolving, and your mileage will vary. 
+                    But if you need more than a superloop and less than Linux, there might be something here for you.
+                </p>
+            </div>
+        </div>
+    </section>
+
     <!-- Why RP2040/2350 -->
-    <section class="section" id="why-rp">
+    <section class="section section-dark" id="why-rp">
         <div class="container">
             <div class="section-header fade-up">
                 <h2>Why RP2040/2350?</h2>
@@ -1553,7 +1700,7 @@
     </section>
 
     <!-- Honest Take -->
-    <section class="section section-dark">
+    <section class="section">
         <div class="container">
             <div class="honest-content fade-up">
                 <h2>Let's Be Honest</h2>
@@ -1595,7 +1742,7 @@
     </section>
 
     <!-- Getting Started -->
-    <section class="section" id="start">
+    <section class="section section-dark" id="start">
         <div class="container">
             <div class="section-header fade-up">
                 <h2>Get Started</h2>
@@ -1636,7 +1783,7 @@ picocom /dev/ttyACM0 -b 115200</code>
     </section>
 
     <!-- Related Projects -->
-    <section class="section section-dark">
+    <section class="section">
         <div class="container">
             <div class="section-header fade-up">
                 <h2>Related Projects</h2>
@@ -1658,7 +1805,7 @@ picocom /dev/ttyACM0 -b 115200</code>
     </section>
 
     <!-- CTA -->
-    <section class="cta-section">
+    <section class="cta-section section-dark">
         <div class="container fade-up">
             <h2>Ready to Try Something Different?</h2>
             <p>
