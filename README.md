@@ -21,6 +21,9 @@ It is not a minimal RTOS and not a single-threaded sketch. It is a complete embe
 
 Unlike minimal kernels that require you to assemble everything yourself, Picomimi provides a persistent, inspectable system where tasks, memory, peripherals, and IPC can be observed and controlled at runtime.
 
+## 🌸 Picomimi Project
+[Explore Picomimi](https://milkmanabi.github.io/Picomimi/)
+
 ---
 
 ## Current Status — v15.0 (In Development)
