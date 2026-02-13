@@ -1,5 +1,36 @@
 # Picomimi MicroOS
 
+---
+
+## ⚠️ Project Status: Extended Hiatus
+
+**Picomimi is on an extended development break.**
+
+This project began as a small Arduino IDE sketch and grew into a ~12,000-line monolithic codebase. An attempt to migrate to pico-sdk did not succeed. Picomimi is now being rebuilt entirely from the ground up, incorporating all knowledge and experience gained throughout its development. The objective is a clean, professional, and maintainable architecture.
+
+During this period, foundational work is being done to extend Picomimi's support beyond the RP2040/RP2350 to additional ARM Cortex-M platforms, including **Nordic nRF** and **STM32** families.
+
+### Ecosystem Projects
+
+The following projects are being developed to support Picomimi's future:
+
+| Project | Description | Repository |
+|---------|-------------|------------|
+| **MimiK** | Platform abstraction libraries for multi-architecture ARM support | [github.com/MilkmanAbi/MimiK](https://github.com/MilkmanAbi/MimiK) |
+| **MimiSort** | Mathematical coprocessing and sorting algorithms for the high-efficiency Dynamic Memory Allocator | [github.com/MilkmanAbi/MimiSort](https://github.com/MilkmanAbi/MimiSort) |
+| **MimiC** | On-device C compiler for native program compilation and execution | [github.com/MilkmanAbi/MimiC](https://github.com/MilkmanAbi/MimiC) |
+| **MimiBoot** | Bootloader with A/B recovery partitions and runtime ELF loading | [github.com/MilkmanAbi/MimiBoot](https://github.com/MilkmanAbi/MimiBoot) |
+
+### Project Philosophy
+
+Picomimi is clear about what it is: **a complete embedded distribution**, not a certification-ready commercial RTOS.
+
+Unlike projects such as Zephyr, Picomimi makes no claims of safety certification, functional safety compliance, or formal verification. It is provided as-is for experimentation, education, and hobbyist use. Users are free to fork, modify, extend, or repurpose Picomimi in any way they see fit—including experimental features, unconventional architectures, or use cases that would not be appropriate for safety-critical systems.
+
+This is intentional. Picomimi exists to be explored, broken, and rebuilt.
+
+---
+
 > **A complete embedded distribution for RP2040 / RP2350**
 > Kernel, scheduler, filesystem, shell, and SDK in one coherent platform.
 
@@ -162,7 +193,7 @@ The distinction between the two will be clarified in future updates.
 
 ## Why Picomimi Was Made
 
-Because I’m struggling with even basic Computer Engineering, I have no idea what I’m doing half the time at school. I like to code. I was given a few RP2040 boards, and I started building things. This project grew from that. Yep.
+Because I'm struggling with even basic Computer Engineering, I have no idea what I'm doing half the time at school. I like to code. I was given a few RP2040 boards, and I started building things. This project grew from that. Yep.
 
 ---
 
