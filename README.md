@@ -10,6 +10,10 @@ This project began as a small Arduino IDE sketch and grew into a ~12,000-line mo
 
 During this period, foundational work is being done to extend Picomimi's support beyond the RP2040/RP2350 to additional ARM Cortex-M platforms, including **Nordic nRF** and **STM32** families.
 
+Picomimi is a fun lil project. During this hiatus, redesigning Picomimi, just to cater to a wider range of Cortex-M MCUs, I'm working on a silly fork, [github.com/MilkmanAbi/Picomimi_x64](https://github.com/MilkmanAbi/Picomimi_x64). Picomimi is copying a lot of Linux Syscall names and ABI to self host Hierarchical schedulers, process management, and potentially some cool little ports of apps.
+
+The project is silly in the sense that it has no reason to exist, proffessional RTOSes exist, and it knows, it's silly and that's fine. This project isn't too serious nor too high achieving, just me messing with Kernel ideologies, and coding for fun OwO
+
 ### Ecosystem Projects
 
 The following projects are being developed to support Picomimi's future:
